@@ -207,7 +207,9 @@ export default function InscricaoPage() {
             <header className="header-institutional">
                 <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2" aria-label="Voltar para início">
-                        <Image src="/logo.svg" alt="Logo IADVh" width={120} height={44} className="h-8 w-auto" priority />
+                        <div className="bg-white/90 px-3 py-1.5 rounded-sm">
+                            <Image src="/logo.svg" alt="Logo IADVh" width={120} height={44} className="h-8 w-auto" priority />
+                        </div>
                     </Link>
                 </div>
             </header>

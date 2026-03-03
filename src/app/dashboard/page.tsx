@@ -250,7 +250,9 @@ export default function DashboardPage() {
             <header className="bg-primary-dark/50 border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-3" aria-label="Voltar para início">
-                        <Image src="/logo.svg" alt="Logo IADVh" width={120} height={44} className="h-8 w-auto brightness-200" priority />
+                        <div className="bg-white/90 px-3 py-1.5 rounded-sm">
+                            <Image src="/logo.svg" alt="Logo IADVh" width={120} height={44} className="h-7 w-auto" priority />
+                        </div>
                         <span className="text-accent text-xs font-medium">Dashboard ao Vivo</span>
                     </Link>
                     <div className="flex items-center gap-3">
@@ -455,9 +457,14 @@ export default function DashboardPage() {
             {/* Footer */}
             <footer className="border-t border-white/10 py-6 mt-8">
                 <div className="max-w-7xl mx-auto px-4 md:px-6 flex flex-col items-center gap-2">
-                    <Image src="/logo.svg" alt="Logo IADVh" width={100} height={36} className="h-6 w-auto brightness-200 opacity-60" />
-                    <p className="text-accent/70 text-xs">
-                        IADVh — Instituto de Apoio ao Desenvolvimento da Vida Humana — Dashboard de Voluntariado
+                    <div className="bg-white/90 px-3 py-1 rounded-sm">
+                        <Image src="/logo.svg" alt="Logo IADVh" width={100} height={36} className="h-5 w-auto" />
+                    </div>
+                    <p className="text-accent/70 text-xs text-center">
+                        IADVh — Instituto de Apoio ao Desenvolvimento da Vida Humana
+                    </p>
+                    <p className="text-accent/50 text-[10px] text-center">
+                        Sistema de Monitoramento de Voluntariado — Gerenciado pela Equipe de Responsabilidade Social
                     </p>
                 </div>
             </footer>

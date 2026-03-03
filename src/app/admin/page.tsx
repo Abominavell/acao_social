@@ -137,7 +137,9 @@ export default function AdminPage() {
             <header className="bg-dark text-white border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-3" aria-label="Voltar para início">
-                        <Image src="/logo.svg" alt="Logo IADVh" width={120} height={44} className="h-8 w-auto brightness-200" priority />
+                        <div className="bg-white/90 px-3 py-1.5 rounded-sm">
+                            <Image src="/logo.svg" alt="Logo IADVh" width={120} height={44} className="h-7 w-auto" priority />
+                        </div>
                         <span className="font-bold text-sm text-white/60">Admin</span>
                     </Link>
                     <div className="flex items-center gap-3">

@@ -110,14 +110,16 @@ export default function Home() {
       <header className="header-institutional">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3" aria-label="IADVh - Página inicial">
-            <Image
-              src="/logo.svg"
-              alt="Logo IADVh - Instituto de Apoio ao Desenvolvimento da Vida Humana"
-              width={160}
-              height={58}
-              className="h-10 md:h-12 w-auto"
-              priority
-            />
+            <div className="bg-white/90 px-3 py-1.5 rounded-sm">
+              <Image
+                src="/logo.svg"
+                alt="Logo IADVh - Instituto de Apoio ao Desenvolvimento da Vida Humana"
+                width={160}
+                height={58}
+                className="h-8 md:h-10 w-auto"
+                priority
+              />
+            </div>
           </Link>
 
           {/* Desktop Nav */}
@@ -217,7 +219,7 @@ export default function Home() {
               Painel Admin
             </Link>
             <Link href="/dashboard" className="btn btn-outline btn-lg w-full" id="mobile-cta-dashboard">
-              Dashboard Gamificado
+              Dashboard
             </Link>
           </div>
         </section>
@@ -236,7 +238,7 @@ export default function Home() {
             />
             <div className="footer-text">
               <p className="footer-brand">Instituto de Apoio ao Desenvolvimento da Vida Humana</p>
-              <p className="footer-sub">Sistema de Voluntariado Social</p>
+              <p className="footer-sub">Sistema de Monitoramento de Voluntariado — Gerenciado pela Equipe de Responsabilidade Social</p>
             </div>
           </div>
         </div>
