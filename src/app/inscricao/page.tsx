@@ -102,6 +102,7 @@ export default function InscricaoPage() {
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [filterProject, setFilterProject] = useState<string>("all");
+    const [inscriptionCounts, setInscriptionCounts] = useState<Record<string, number>>({});
 
     useEffect(() => {
         fetchSetores();
@@ -133,7 +134,20 @@ export default function InscricaoPage() {
             .eq("ativo", true)
             .gte("data_evento", new Date().toISOString())
             .order("data_evento");
-        if (data) setAcoes(data);
+        if (data) {
+            setAcoes(data);
+            // Fetch inscription counts for vacancy control
+            const { data: counts } = await supabase
+                .from("inscricoes")
+                .select("acao_id");
+            if (counts) {
+                const countMap: Record<string, number> = {};
+                counts.forEach((row: { acao_id: string }) => {
+                    countMap[row.acao_id] = (countMap[row.acao_id] || 0) + 1;
+                });
+                setInscriptionCounts(countMap);
+            }
+        }
     }
 
     async function handleInscrever() {
@@ -315,38 +329,49 @@ export default function InscricaoPage() {
                                             {group.label}
                                         </h4>
                                         <div className="space-y-2">
-                                            {group.items.map((acao) => (
-                                                <button
-                                                    key={acao.id}
-                                                    onClick={() => setSelectedAcao(acao.id)}
-                                                    className={`w-full text-left flex items-center gap-3 p-3 transition-all cursor-pointer border ${selectedAcao === acao.id
-                                                        ? "bg-green-50 border-primary ring-1 ring-primary"
-                                                        : "bg-surface border-transparent hover:bg-gray-50"
-                                                        }`}
-                                                >
-                                                    {/* Date Badge */}
-                                                    <div className={`flex-shrink-0 w-14 text-center py-1.5 text-xs font-bold ${selectedAcao === acao.id ? "bg-primary text-white" : "bg-gray-100 text-text-secondary"}`}>
-                                                        {formatDateShort(acao.data_evento)}
-                                                    </div>
+                                            {group.items.map((acao) => {
+                                                const inscritos = inscriptionCounts[acao.id] || 0;
+                                                const vagasRestantes = acao.vagas_limite - inscritos;
+                                                const esgotado = vagasRestantes <= 0;
 
-                                                    {/* Title */}
-                                                    <div className="flex-1 min-w-0">
-                                                        <span className="font-semibold text-sm text-text-primary truncate block">
-                                                            {acao.titulo}
-                                                        </span>
-                                                        {acao.descricao && (
-                                                            <span className="text-xs text-text-secondary truncate block">{acao.descricao}</span>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Check */}
-                                                    {selectedAcao === acao.id && (
-                                                        <div className="w-6 h-6 bg-primary flex items-center justify-center flex-shrink-0">
-                                                            <CheckIcon className="text-white" />
+                                                return (
+                                                    <button
+                                                        key={acao.id}
+                                                        onClick={() => !esgotado && setSelectedAcao(acao.id)}
+                                                        disabled={esgotado}
+                                                        className={`w-full text-left flex items-center gap-3 p-3 transition-all border ${esgotado
+                                                            ? "bg-gray-50 border-transparent opacity-60 cursor-not-allowed"
+                                                            : selectedAcao === acao.id
+                                                                ? "bg-green-50 border-primary ring-1 ring-primary cursor-pointer"
+                                                                : "bg-surface border-transparent hover:bg-gray-50 cursor-pointer"
+                                                            }`}
+                                                    >
+                                                        {/* Date Badge */}
+                                                        <div className={`flex-shrink-0 w-14 text-center py-1.5 text-xs font-bold ${selectedAcao === acao.id ? "bg-primary text-white" : "bg-gray-100 text-text-secondary"}`}>
+                                                            {formatDateShort(acao.data_evento)}
                                                         </div>
-                                                    )}
-                                                </button>
-                                            ))}
+
+                                                        {/* Title + Vacancy */}
+                                                        <div className="flex-1 min-w-0">
+                                                            <span className="font-semibold text-sm text-text-primary truncate block">
+                                                                {acao.titulo}
+                                                            </span>
+                                                            <span className={`text-xs truncate block ${esgotado ? "text-error font-semibold" : "text-text-secondary"}`}>
+                                                                {esgotado ? "Esgotado" : `${vagasRestantes} vaga${vagasRestantes !== 1 ? "s" : ""} restante${vagasRestantes !== 1 ? "s" : ""}`}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Check or Esgotado badge */}
+                                                        {esgotado ? (
+                                                            <span className="badge bg-red-100 text-error text-[10px] flex-shrink-0">Lotado</span>
+                                                        ) : selectedAcao === acao.id ? (
+                                                            <div className="w-6 h-6 bg-primary flex items-center justify-center flex-shrink-0">
+                                                                <CheckIcon className="text-white" />
+                                                            </div>
+                                                        ) : null}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 ))}
