@@ -74,11 +74,31 @@ function MedalIcon() {
     );
 }
 
+function TrendUpIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+            <polyline points="16 7 22 7 22 13" />
+        </svg>
+    );
+}
+
+function TrendDownIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="22 17 13.5 8.5 8.5 13.5 2 7" />
+            <polyline points="16 17 22 17 22 11" />
+        </svg>
+    );
+}
+
 interface DashboardData {
     ranking: RankingSetor[];
     totalParticipacoes: number;
     totalExternos: number;
     totalAcoes: number;
+    previousParticipacoes: number;
+    previousSetoresAtivos: number;
 }
 
 const medalLabels = ["1º", "2º", "3º"];
@@ -108,6 +128,8 @@ export default function DashboardPage() {
         totalParticipacoes: 0,
         totalExternos: 0,
         totalAcoes: 0,
+        previousParticipacoes: 0,
+        previousSetoresAtivos: 0,
     });
     const [periodo, setPeriodo] = useState<"mes" | "ano">("mes");
     const [loading, setLoading] = useState(true);
@@ -203,11 +225,41 @@ export default function DashboardPage() {
             })
             .sort((a, b) => b.participantes_unicos - a.participantes_unicos || b.taxa_engajamento - a.taxa_engajamento);
 
+        // Fetch previous period for comparison
+        let prevStartDate: string;
+        let prevEndDate: string;
+        if (periodo === "mes") {
+            prevStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+            prevEndDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        } else {
+            prevStartDate = new Date(now.getFullYear() - 1, 0, 1).toISOString();
+            prevEndDate = new Date(now.getFullYear(), 0, 1).toISOString();
+        }
+
+        const { data: prevInscricoes } = await supabase
+            .from("inscricoes")
+            .select("id, colaboradores(setor_id, is_externo)")
+            .eq("confirmado_presenca", true)
+            .gte("created_at", prevStartDate)
+            .lt("created_at", prevEndDate);
+
+        const prevSetores = new Set<string>();
+        let prevCount = 0;
+        if (prevInscricoes) {
+            prevInscricoes.forEach((insc) => {
+                const c = insc.colaboradores as unknown as { setor_id: string; is_externo: boolean };
+                if (c && !c.is_externo) prevSetores.add(c.setor_id);
+                prevCount++;
+            });
+        }
+
         setData({
             ranking,
             totalParticipacoes: inscricoes.length,
             totalExternos: externCount,
             totalAcoes: acoes?.length || 0,
+            previousParticipacoes: prevCount,
+            previousSetoresAtivos: prevSetores.size,
         });
         setLastUpdate(new Date());
         setLoading(false);
@@ -329,6 +381,61 @@ export default function DashboardPage() {
                             ))}
                         </div>
 
+                        {/* Period Comparison */}
+                        {(data.previousParticipacoes > 0 || data.totalParticipacoes > 0) && (
+                            <div className="bg-white/5 border border-white/10 p-4 mb-10 animate-fade-in-up">
+                                <p className="text-xs text-accent/70 font-medium uppercase tracking-wider mb-3">
+                                    Comparativo vs {periodo === "mes" ? "mês anterior" : "ano anterior"}
+                                </p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {(() => {
+                                        const delta = data.totalParticipacoes - data.previousParticipacoes;
+                                        const pct = data.previousParticipacoes > 0
+                                            ? Math.round((delta / data.previousParticipacoes) * 100)
+                                            : data.totalParticipacoes > 0 ? 100 : 0;
+                                        const isUp = delta >= 0;
+                                        return (
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-8 h-8 flex items-center justify-center ${isUp ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
+                                                    {isUp ? <TrendUpIcon /> : <TrendDownIcon />}
+                                                </div>
+                                                <div>
+                                                    <p className="text-white font-bold text-sm">
+                                                        {isUp ? "+" : ""}{delta} participações
+                                                    </p>
+                                                    <p className={`text-xs font-semibold ${isUp ? "text-green-300" : "text-red-300"}`}>
+                                                        {isUp ? "+" : ""}{pct}% vs período anterior
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                    {(() => {
+                                        const currentSetores = data.ranking.filter((r) => r.participantes_unicos > 0).length;
+                                        const delta = currentSetores - data.previousSetoresAtivos;
+                                        const isUp = delta >= 0;
+                                        return (
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-8 h-8 flex items-center justify-center ${isUp ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
+                                                    {isUp ? <TrendUpIcon /> : <TrendDownIcon />}
+                                                </div>
+                                                <div>
+                                                    <p className="text-white font-bold text-sm">
+                                                        {isUp ? "+" : ""}{delta} setores ativos
+                                                    </p>
+                                                    <p className={`text-xs font-semibold ${isUp ? "text-green-300" : "text-red-300"}`}>
+                                                        {data.previousSetoresAtivos > 0
+                                                            ? `${isUp ? "+" : ""}${Math.round((delta / data.previousSetoresAtivos) * 100)}%`
+                                                            : currentSetores > 0 ? "Novo" : "—"
+                                                        } vs período anterior
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            </div>
+                        )}
                         {/* Podium */}
                         {top3.length > 0 && (
                             <div className="mb-10">
