@@ -489,7 +489,7 @@ export default function InscricaoPage() {
                                                                 {acao.titulo}
                                                             </span>
                                                             {acao.descricao && (
-                                                                <span className="text-xs text-text-secondary line-clamp-2 mb-2 leading-relaxed">
+                                                                <span className={`text-xs text-text-secondary mb-2 leading-relaxed ${selectedAcao === acao.id ? "" : "line-clamp-2"}`}>
                                                                     {acao.descricao}
                                                                 </span>
                                                             )}

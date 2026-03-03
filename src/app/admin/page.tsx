@@ -174,7 +174,7 @@ function AdminContent() {
             }
         });
 
-        await supabase.from("acoes_sociais").insert({
+        const { error } = await supabase.from("acoes_sociais").insert({
             titulo: newAcao.titulo,
             descricao: newAcao.descricao || null,
             data_evento: newAcao.data_evento,
@@ -182,12 +182,15 @@ function AdminContent() {
             vagas_por_setor: Object.keys(cleanVagasSetor).length > 0 ? cleanVagasSetor : null,
             ativo: true,
         });
+        if (error) {
+            console.error("Erro ao criar ação:", error);
+            return;
+        }
         setNewAcao({ titulo: "", descricao: "", data_evento: "", vagas_limite: 20, vagas_por_setor: {} });
         setShowCreateForm(false);
-        fetchAcoes();
+        await fetchAcoes();
     }
 
-    /* ── Improvement #2: Edit Action ── */
     async function handleEditAcao(e: React.FormEvent) {
         e.preventDefault();
         if (!editingAcao) return;
@@ -198,28 +201,37 @@ function AdminContent() {
                 delete cleanVagasSetor[k];
             }
         });
-        await supabase
+
+        const updatePayload = {
+            titulo: editingAcao.titulo,
+            descricao: editingAcao.descricao,
+            data_evento: editingAcao.data_evento,
+            vagas_limite: editingAcao.vagas_limite,
+            vagas_por_setor: Object.keys(cleanVagasSetor).length > 0 ? cleanVagasSetor : null,
+            ativo: editingAcao.ativo,
+        };
+
+        const { error } = await supabase
             .from("acoes_sociais")
-            .update({
-                titulo: editingAcao.titulo,
-                descricao: editingAcao.descricao,
-                data_evento: editingAcao.data_evento,
-                vagas_limite: editingAcao.vagas_limite,
-                vagas_por_setor: Object.keys(cleanVagasSetor).length > 0 ? cleanVagasSetor : null,
-                ativo: editingAcao.ativo,
-            })
+            .update(updatePayload)
             .eq("id", editingAcao.id);
+
+        if (error) {
+            console.error("Erro ao salvar ação:", error);
+            alert("Erro ao salvar alterações. Verifique o console para mais detalhes.");
+            return;
+        }
+
         setEditingAcao(null);
-        fetchAcoes();
+        await fetchAcoes();
     }
 
-    /* ── Improvement #2: Delete Action ── */
     async function handleDeleteAcao(acaoId: string) {
         await supabase.from("inscricoes").delete().eq("acao_id", acaoId);
         await supabase.from("acoes_sociais").delete().eq("id", acaoId);
         setDeleteConfirm(null);
         if (selectedAcao === acaoId) setSelectedAcao("");
-        fetchAcoes();
+        await fetchAcoes();
     }
 
     /* ── Improvement #2: Toggle Active ── */

@@ -3,7 +3,27 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "IADVh - Voluntariado Social",
-  description: "Sistema de Gamificação e Monitoramento de Compromisso Social do Instituto de Apoio ao Desenvolvimento da Vida Humana",
+  description: "Sistema de Monitoramento de Voluntariado e Compromisso Social do Instituto de Apoio ao Desenvolvimento da Vida Humana",
+  openGraph: {
+    title: "IADVh - Voluntariado Social",
+    description: "Inscreva-se em ações sociais, confirme sua presença e acompanhe o ranking do seu setor em tempo real.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1024,
+        height: 1024,
+        alt: "IADVh - Voluntariado Social",
+      },
+    ],
+    type: "website",
+    locale: "pt_BR",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "IADVh - Voluntariado Social",
+    description: "Inscreva-se em ações sociais, confirme sua presença e acompanhe o ranking do seu setor em tempo real.",
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({
