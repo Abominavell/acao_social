@@ -74,6 +74,17 @@ function MedalIcon() {
     );
 }
 
+function HeartHandshakeIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+            <path d="M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08c.82.82 2.13.85 3 .07l2.07-1.9a2.82 2.82 0 0 1 3.79 0l2.96 2.66" />
+            <path d="m18 15-2-2" />
+            <path d="m15 18-2-2" />
+        </svg>
+    );
+}
+
 function TrendUpIcon() {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -96,6 +107,7 @@ interface DashboardData {
     ranking: RankingSetor[];
     totalParticipacoes: number;
     totalExternos: number;
+    totalInscricoesExternas: number;
     totalAcoes: number;
     previousParticipacoes: number;
     previousSetoresAtivos: number;
@@ -127,6 +139,7 @@ export default function DashboardPage() {
         ranking: [],
         totalParticipacoes: 0,
         totalExternos: 0,
+        totalInscricoesExternas: 0,
         totalAcoes: 0,
         previousParticipacoes: 0,
         previousSetoresAtivos: 0,
@@ -174,6 +187,13 @@ export default function DashboardPage() {
             .from("acoes_sociais")
             .select("id")
             .eq("ativo", true);
+
+        // Fetch ALL inscriptions from external volunteers (not just confirmed)
+        const { data: inscricoesExternas } = await supabase
+            .from("inscricoes")
+            .select("id, colaboradores!inner(is_externo)")
+            .eq("colaboradores.is_externo", true)
+            .gte("created_at", startDate);
 
         if (!inscricoes || !setores || !colaboradores) {
             setLoading(false);
@@ -257,6 +277,7 @@ export default function DashboardPage() {
             ranking,
             totalParticipacoes: inscricoes.length,
             totalExternos: externCount,
+            totalInscricoesExternas: inscricoesExternas?.length || 0,
             totalAcoes: acoes?.length || 0,
             previousParticipacoes: prevCount,
             previousSetoresAtivos: prevSetores.size,
@@ -543,20 +564,66 @@ export default function DashboardPage() {
                             </div>
                         </div>
 
-                        {/* External Volunteers Highlight */}
-                        {data.totalExternos > 0 && (
-                            <div className="mt-8 bg-accent/20 border border-accent/30 p-6 text-center animate-fade-in-up">
-                                <div className="flex justify-center mb-2 text-white">
-                                    <GlobeIcon />
-                                </div>
-                                <p className="text-white font-bold text-xl">
-                                    {data.totalExternos} Voluntário{data.totalExternos > 1 ? "s" : ""} Externo{data.totalExternos > 1 ? "s" : ""}
-                                </p>
-                                <p className="text-accent text-sm">
-                                    Pessoas de fora do instituto que participaram de nossas ações
-                                </p>
+                        {/* Community Engagement Card */}
+                        <div className="mt-8 bg-white/10 border border-white/20 overflow-hidden animate-fade-in-up">
+                            <div className="px-6 py-4 border-b border-white/10 flex items-center gap-2">
+                                <span className="text-accent"><HeartHandshakeIcon /></span>
+                                <h2 className="text-white font-bold">Engajamento Comunitário</h2>
                             </div>
-                        )}
+                            <div className="p-6">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    {/* Total External Inscriptions */}
+                                    <div className="text-center">
+                                        <p className="text-3xl md:text-4xl font-black text-white">
+                                            {data.totalInscricoesExternas}
+                                        </p>
+                                        <p className="text-accent text-sm font-medium mt-1">
+                                            Inscrições Externas
+                                        </p>
+                                        <p className="text-white/50 text-xs mt-0.5">
+                                            Total de inscrições de voluntários da comunidade
+                                        </p>
+                                    </div>
+
+                                    {/* Confirmed External */}
+                                    <div className="text-center">
+                                        <p className="text-3xl md:text-4xl font-black text-white">
+                                            {data.totalExternos}
+                                        </p>
+                                        <p className="text-accent text-sm font-medium mt-1">
+                                            Presenças Confirmadas
+                                        </p>
+                                        <p className="text-white/50 text-xs mt-0.5">
+                                            Voluntários externos com presença confirmada
+                                        </p>
+                                    </div>
+
+                                    {/* Community Reach % */}
+                                    <div className="text-center">
+                                        <p className="text-3xl md:text-4xl font-black text-white">
+                                            {data.totalParticipacoes > 0
+                                                ? Math.round((data.totalInscricoesExternas / (data.totalParticipacoes + data.totalInscricoesExternas - data.totalExternos)) * 100)
+                                                : 0}%
+                                        </p>
+                                        <p className="text-accent text-sm font-medium mt-1">
+                                            Alcance Comunitário
+                                        </p>
+                                        <p className="text-white/50 text-xs mt-0.5">
+                                            Proporção de participação externa nas ações
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {data.totalInscricoesExternas > 0 && (
+                                    <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-center gap-2 text-accent/80 text-sm">
+                                        <GlobeIcon />
+                                        <span>
+                                            {data.totalInscricoesExternas} pessoa{data.totalInscricoesExternas > 1 ? "s" : ""} de fora se inscreveram nas ações sociais
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </>
                 )}
             </main>

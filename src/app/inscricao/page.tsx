@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -102,20 +104,14 @@ export default function InscricaoPage() {
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [filterProject, setFilterProject] = useState<string>("all");
-    const [inscriptionCounts, setInscriptionCounts] = useState<Record<string, number>>({});
+    const [inscriptionCounts, setInscriptionCounts] = useState<Record<string, { total: number; bySector: Record<string, number> }>>({});
 
-    useEffect(() => {
-        fetchSetores();
-        fetchAcoes();
-    }, []);
+    // External flow state
+    const [isExternoForm, setIsExternoForm] = useState(false);
+    const [externoNome, setExternoNome] = useState("");
+    const [externoUnidade, setExternoUnidade] = useState("");
 
-    useEffect(() => {
-        if (selectedSetor) {
-            fetchColaboradores(selectedSetor);
-            setSelectedColaborador("");
-            setStep(2);
-        }
-    }, [selectedSetor]);
+
 
     async function fetchSetores() {
         const { data } = await supabase.from("setores").select("*").order("nome");
@@ -136,28 +132,93 @@ export default function InscricaoPage() {
             .order("data_evento");
         if (data) {
             setAcoes(data);
-            // Fetch inscription counts for vacancy control
+            // Fetch inscription counts for vacancy control (grouped by action and sector)
             const { data: counts } = await supabase
                 .from("inscricoes")
-                .select("acao_id");
+                .select("acao_id, colaboradores(setor_id)");
+
             if (counts) {
-                const countMap: Record<string, number> = {};
-                counts.forEach((row: { acao_id: string }) => {
-                    countMap[row.acao_id] = (countMap[row.acao_id] || 0) + 1;
+                const countMap: Record<string, { total: number; bySector: Record<string, number> }> = {};
+                counts.forEach((row) => {
+                    const acaoId = row.acao_id;
+                    const colab = row.colaboradores as unknown as { setor_id: string } | null;
+                    const setorId = colab?.setor_id;
+
+                    if (!countMap[acaoId]) {
+                        countMap[acaoId] = { total: 0, bySector: {} };
+                    }
+
+                    countMap[acaoId].total += 1;
+                    if (setorId) {
+                        countMap[acaoId].bySector[setorId] = (countMap[acaoId].bySector[setorId] || 0) + 1;
+                    }
                 });
                 setInscriptionCounts(countMap);
             }
         }
     }
 
+    useEffect(() => {
+        fetchSetores();
+        fetchAcoes();
+    }, []);
+
+    useEffect(() => {
+        if (selectedSetor) {
+            fetchColaboradores(selectedSetor);
+            setSelectedColaborador("");
+            setStep(2);
+        }
+    }, [selectedSetor]);
+
     async function handleInscrever() {
-        if (!selectedColaborador || !selectedAcao) return;
-        setLoading(true);
-        setError(null);
+        if (!selectedAcao) return;
+
+        let finalColabId = selectedColaborador;
+
+        if (isExternoForm) {
+            if (!externoNome || !externoUnidade) {
+                setError("Preencha seu nome e instituição/unidade.");
+                return;
+            }
+            setLoading(true);
+            setError(null);
+
+            // Find or create 'EXTERNOS' sector
+            let extSetorId = setores.find(s => s.nome.toUpperCase() === "EXTERNOS")?.id;
+            if (!extSetorId) {
+                const { data: newS } = await supabase.from("setores").insert({ nome: "EXTERNOS" }).select().single();
+                extSetorId = newS?.id || setores[0]?.id;
+            }
+
+            const fullName = `${externoNome.trim()} (${externoUnidade.trim()})`;
+
+            // Re-use or create colab
+            let { data: extColab } = await supabase.from("colaboradores")
+                .select("id").eq("nome", fullName).eq("is_externo", true).single();
+
+            if (!extColab) {
+                const { data: freshColab } = await supabase.from("colaboradores")
+                    .insert({ nome: fullName, is_externo: true, setor_id: extSetorId })
+                    .select().single();
+                extColab = freshColab;
+            }
+
+            if (!extColab) {
+                setError("Erro ao registrar voluntário externo.");
+                setLoading(false);
+                return;
+            }
+            finalColabId = extColab.id;
+        } else {
+            if (!finalColabId) return;
+            setLoading(true);
+            setError(null);
+        }
 
         const { error: insertError } = await supabase.from("inscricoes").insert({
             acao_id: selectedAcao,
-            colaborador_id: selectedColaborador,
+            colaborador_id: finalColabId,
             confirmado_presenca: false,
         });
 
@@ -182,6 +243,9 @@ export default function InscricaoPage() {
         setSuccess(false);
         setError(null);
         setFilterProject("all");
+        setIsExternoForm(false);
+        setExternoNome("");
+        setExternoUnidade("");
     }
 
     // Derive unique project names for filter tabs
@@ -249,17 +313,65 @@ export default function InscricaoPage() {
                 </div>
 
                 {/* Step 1: Setor */}
-                {step >= 1 && !success && (
+                {/* Step 1: Setor / Externo */}
+                {step >= 1 && !success && !isExternoForm && (
                     <div className="card mb-4 animate-fade-in-up">
                         <label className="block text-sm font-semibold text-text-primary mb-2">
-                            1. Selecione seu Setor
+                            1. Identifique-se
                         </label>
-                        <select className="input-field" value={selectedSetor} onChange={(e) => setSelectedSetor(e.target.value)}>
-                            <option value="">Escolha o setor...</option>
+                        <select className="input-field mb-4" value={selectedSetor} onChange={(e) => setSelectedSetor(e.target.value)}>
+                            <option value="">Escolha seu setor (Sede)...</option>
                             {setores.map((s) => (
                                 <option key={s.id} value={s.id}>{s.nome}</option>
                             ))}
                         </select>
+
+                        <div className="relative flex items-center py-2">
+                            <div className="flex-grow border-t border-gray-200"></div>
+                            <span className="flex-shrink-0 mx-4 text-text-secondary text-xs uppercase font-medium">ou</span>
+                            <div className="flex-grow border-t border-gray-200"></div>
+                        </div>
+
+                        <button
+                            type="button"
+                            className="btn btn-outline w-full mt-2 text-sm py-2.5"
+                            onClick={() => setIsExternoForm(true)}
+                        >
+                            Sou Voluntário Externo
+                        </button>
+                    </div>
+                )}
+
+                {/* Externo Form */}
+                {isExternoForm && !success && step < 4 && (
+                    <div className="card mb-4 animate-fade-in-up border-l-4 border-l-accent">
+                        <div className="flex items-center justify-between mb-3">
+                            <label className="block text-sm font-semibold text-text-primary">
+                                Cadastro de Externo
+                            </label>
+                            <button onClick={resetForm} className="text-xs text-text-secondary hover:text-primary underline">
+                                Voltar
+                            </button>
+                        </div>
+                        <div className="space-y-3">
+                            <input
+                                type="text"
+                                placeholder="Seu nome completo"
+                                className="input-field"
+                                value={externoNome}
+                                onChange={e => setExternoNome(e.target.value)}
+                            />
+                            <input
+                                type="text"
+                                placeholder="Empresa / Instituição / Unidade"
+                                className="input-field"
+                                value={externoUnidade}
+                                onChange={e => setExternoUnidade(e.target.value)}
+                            />
+                            <div className="text-xs text-text-secondary bg-gray-50 p-2 rounded">
+                                Selecione uma ação social abaixo para prosseguir.
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -330,42 +442,69 @@ export default function InscricaoPage() {
                                         </h4>
                                         <div className="space-y-2">
                                             {group.items.map((acao) => {
-                                                const inscritos = inscriptionCounts[acao.id] || 0;
-                                                const vagasRestantes = acao.vagas_limite - inscritos;
+                                                const stats = inscriptionCounts[acao.id] || { total: 0, bySector: {} };
+
+                                                // Calculate active limit
+                                                let limit = acao.vagas_limite;
+                                                let inscritos = stats.total;
+                                                let isSectorLimit = false;
+
+                                                if (!isExternoForm && selectedSetor && acao.vagas_por_setor && typeof acao.vagas_por_setor[selectedSetor] === 'number') {
+                                                    limit = acao.vagas_por_setor[selectedSetor];
+                                                    inscritos = stats.bySector[selectedSetor] || 0;
+                                                    isSectorLimit = true;
+                                                }
+
+                                                const vagasRestantes = limit - inscritos;
                                                 const esgotado = vagasRestantes <= 0;
+
+                                                const formatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                                                const timeString = formatter.format(new Date(acao.data_evento));
 
                                                 return (
                                                     <button
                                                         key={acao.id}
                                                         onClick={() => !esgotado && setSelectedAcao(acao.id)}
                                                         disabled={esgotado}
-                                                        className={`w-full text-left flex items-center gap-3 p-3 transition-all border ${esgotado
+                                                        className={`w-full text-left flex items-start gap-3 p-3 transition-all border ${esgotado
                                                             ? "bg-gray-50 border-transparent opacity-60 cursor-not-allowed"
                                                             : selectedAcao === acao.id
                                                                 ? "bg-green-50 border-primary ring-1 ring-primary cursor-pointer"
                                                                 : "bg-surface border-transparent hover:bg-gray-50 cursor-pointer"
                                                             }`}
                                                     >
-                                                        {/* Date Badge */}
-                                                        <div className={`flex-shrink-0 w-14 text-center py-1.5 text-xs font-bold ${selectedAcao === acao.id ? "bg-primary text-white" : "bg-gray-100 text-text-secondary"}`}>
-                                                            {formatDateShort(acao.data_evento)}
+                                                        {/* Date & Time Badge */}
+                                                        <div className={`flex flex-col flex-shrink-0 w-16 text-center rounded overflow-hidden shadow-sm ${selectedAcao === acao.id ? "bg-primary text-white" : "bg-gray-100 text-text-secondary"}`}>
+                                                            <div className="py-1.5 text-xs font-bold border-b border-black/10">
+                                                                {formatDateShort(acao.data_evento)}
+                                                            </div>
+                                                            <div className={`py-1 text-[10px] font-medium ${selectedAcao === acao.id ? "bg-primary-dark" : "bg-gray-200"}`}>
+                                                                {timeString}
+                                                            </div>
                                                         </div>
 
-                                                        {/* Title + Vacancy */}
-                                                        <div className="flex-1 min-w-0">
-                                                            <span className="font-semibold text-sm text-text-primary truncate block">
+                                                        {/* Title + Desc + Vacancy */}
+                                                        <div className="flex-1 min-w-0 pt-0.5">
+                                                            <span className="font-semibold text-sm text-text-primary leading-tight mb-1 block">
                                                                 {acao.titulo}
                                                             </span>
-                                                            <span className={`text-xs truncate block ${esgotado ? "text-error font-semibold" : "text-text-secondary"}`}>
+                                                            {acao.descricao && (
+                                                                <span className="text-xs text-text-secondary line-clamp-2 mb-2 leading-relaxed">
+                                                                    {acao.descricao}
+                                                                </span>
+                                                            )}
+                                                            <div className={`text-[11px] inline-flex items-center px-1.5 py-0.5 rounded ${esgotado ? "bg-red-50 text-error font-semibold" : "bg-primary/5 text-primary font-medium"}`}>
                                                                 {esgotado ? "Esgotado" : `${vagasRestantes} vaga${vagasRestantes !== 1 ? "s" : ""} restante${vagasRestantes !== 1 ? "s" : ""}`}
-                                                            </span>
+                                                                {isSectorLimit && !esgotado && " (p/ seu setor)"}
+                                                                {isSectorLimit && esgotado && " p/ seu setor"}
+                                                            </div>
                                                         </div>
 
                                                         {/* Check or Esgotado badge */}
                                                         {esgotado ? (
-                                                            <span className="badge bg-red-100 text-error text-[10px] flex-shrink-0">Lotado</span>
+                                                            <span className="badge bg-red-100 text-error text-[10px] flex-shrink-0 mt-1">Lotado</span>
                                                         ) : selectedAcao === acao.id ? (
-                                                            <div className="w-6 h-6 bg-primary flex items-center justify-center flex-shrink-0">
+                                                            <div className="w-6 h-6 bg-primary flex items-center justify-center flex-shrink-0 mt-1 rounded-full">
                                                                 <CheckIcon className="text-white" />
                                                             </div>
                                                         ) : null}

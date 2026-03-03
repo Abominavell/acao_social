@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -46,6 +49,15 @@ function MenuIcon() {
   );
 }
 
+function CloseIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="18" x2="6" y1="6" y2="18" />
+      <line x1="6" x2="18" y1="6" y2="18" />
+    </svg>
+  );
+}
+
 function UsersIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -72,6 +84,39 @@ function BarChartIcon() {
       <line x1="12" x2="12" y1="20" y2="10" />
       <line x1="18" x2="18" y1="20" y2="4" />
       <line x1="6" x2="6" y1="20" y2="16" />
+    </svg>
+  );
+}
+
+function ClipboardListIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <path d="M12 11h4" />
+      <path d="M12 16h4" />
+      <path d="M8 11h.01" />
+      <path d="M8 16h.01" />
+    </svg>
+  );
+}
+
+function LayoutDashboardIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect width="7" height="9" x="3" y="3" rx="1" />
+      <rect width="7" height="5" x="14" y="3" rx="1" />
+      <rect width="7" height="9" x="14" y="12" rx="1" />
+      <rect width="7" height="5" x="3" y="16" rx="1" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
@@ -103,7 +148,15 @@ const stats = [
   { icon: BarChartIcon, value: "Tempo Real", label: "Acompanhamento" },
 ];
 
+const drawerLinks = [
+  { href: "/inscricao", label: "Inscrição de Voluntário", icon: ClipboardListIcon },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
+  { href: "/admin", label: "Painel Admin", icon: SettingsIcon },
+];
+
 export default function Home() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -136,11 +189,69 @@ export default function Home() {
           </nav>
 
           {/* Mobile Menu Button */}
-          <button className="md:hidden text-white p-2 -mr-2" aria-label="Abrir menu">
+          <button
+            className="md:hidden text-white p-2 -mr-2"
+            aria-label="Abrir menu"
+            onClick={() => setMenuOpen(true)}
+          >
             <MenuIcon />
           </button>
         </div>
       </header>
+
+      {/* Mobile Drawer Overlay */}
+      {menuOpen && (
+        <div
+          className="mobile-overlay"
+          onClick={() => setMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Mobile Drawer */}
+      <nav
+        className={`mobile-drawer ${menuOpen ? "mobile-drawer-open" : ""}`}
+        aria-label="Menu mobile"
+      >
+        <div className="mobile-drawer-header">
+          <div className="bg-white/90 px-3 py-1.5 rounded-sm">
+            <Image
+              src="/logo.svg"
+              alt="Logo IADVh"
+              width={120}
+              height={44}
+              className="h-7 w-auto"
+            />
+          </div>
+          <button
+            className="text-white/70 hover:text-white p-2 -mr-2 transition-colors"
+            onClick={() => setMenuOpen(false)}
+            aria-label="Fechar menu"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+
+        <div className="mobile-drawer-links">
+          {drawerLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="mobile-drawer-link"
+              onClick={() => setMenuOpen(false)}
+            >
+              <link.icon />
+              {link.label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="mobile-drawer-footer">
+          <p className="text-white/40 text-xs text-center">
+            IADVh — Monitoramento de Voluntariado
+          </p>
+        </div>
+      </nav>
 
       {/* Hero */}
       <main>
@@ -161,11 +272,8 @@ export default function Home() {
               </p>
 
               <div className="hero-actions">
-                <Link href="/inscricao" className="btn btn-primary btn-lg" id="cta-participar">
+                <Link href="/inscricao" className="btn btn-cta-hero" id="cta-participar">
                   Quero Participar
-                </Link>
-                <Link href="/dashboard" className="btn btn-outline-white btn-lg" id="cta-dashboard">
-                  Ver Dashboard
                 </Link>
               </div>
             </div>
@@ -206,21 +314,6 @@ export default function Home() {
                 </div>
               ))}
             </div>
-          </div>
-        </section>
-
-        {/* Mobile CTA Section */}
-        <section className="md:hidden px-4 pb-8">
-          <div className="flex flex-col gap-3">
-            <Link href="/inscricao" className="btn btn-primary btn-lg w-full" id="mobile-cta-inscricao">
-              Inscrição de Voluntário
-            </Link>
-            <Link href="/admin" className="btn btn-secondary btn-lg w-full" id="mobile-cta-admin">
-              Painel Admin
-            </Link>
-            <Link href="/dashboard" className="btn btn-outline btn-lg w-full" id="mobile-cta-dashboard">
-              Dashboard
-            </Link>
           </div>
         </section>
       </main>

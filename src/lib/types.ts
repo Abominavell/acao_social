@@ -20,6 +20,7 @@ export interface AcaoSocial {
     vagas_limite: number;
     ativo: boolean;
     created_at: string;
+    vagas_por_setor?: Record<string, number> | null;
 }
 
 export interface Inscricao {
