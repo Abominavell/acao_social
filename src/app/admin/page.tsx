@@ -2,8 +2,36 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import type { AcaoSocial, Inscricao } from "@/lib/types";
+
+function PlusIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12h14" /><path d="M12 5v14" />
+        </svg>
+    );
+}
+
+function CloseIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+        </svg>
+    );
+}
+
+function ClipboardListIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+            <path d="M12 11h4" /><path d="M12 16h4" />
+            <path d="M8 11h.01" /><path d="M8 16h.01" />
+        </svg>
+    );
+}
 
 export default function AdminPage() {
     const [acoes, setAcoes] = useState<AcaoSocial[]>([]);
@@ -106,16 +134,12 @@ export default function AdminPage() {
     return (
         <div className="min-h-screen bg-background">
             {/* Header */}
-            <header className="bg-dark text-white">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Link href="/" className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                                <span className="text-white font-black text-xs">IA</span>
-                            </div>
-                            <span className="font-bold">IADVH Admin</span>
-                        </Link>
-                    </div>
+            <header className="bg-dark text-white border-b border-white/10">
+                <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
+                    <Link href="/" className="flex items-center gap-3" aria-label="Voltar para início">
+                        <Image src="/logo.svg" alt="Logo IADVh" width={120} height={44} className="h-8 w-auto brightness-200" priority />
+                        <span className="font-bold text-sm text-white/60">Admin</span>
+                    </Link>
                     <div className="flex items-center gap-3">
                         <Link href="/inscricao" className="text-sm text-accent hover:underline">
                             Inscrição
@@ -127,7 +151,7 @@ export default function AdminPage() {
                 </div>
             </header>
 
-            <main className="max-w-7xl mx-auto px-6 py-8">
+            <main className="max-w-7xl mx-auto px-4 md:px-6 py-8">
                 <div className="flex items-center justify-between mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-text-primary">
@@ -138,10 +162,10 @@ export default function AdminPage() {
                         </p>
                     </div>
                     <button
-                        className="btn btn-primary"
+                        className="btn btn-primary flex items-center gap-2"
                         onClick={() => setShowCreateForm(!showCreateForm)}
                     >
-                        {showCreateForm ? "✕ Fechar" : "+ Nova Ação"}
+                        {showCreateForm ? <><CloseIcon /> Fechar</> : <><PlusIcon /> Nova Ação</>}
                     </button>
                 </div>
 
@@ -241,11 +265,14 @@ export default function AdminPage() {
                     </div>
                     {loading ? (
                         <div className="text-center py-12 text-text-secondary">
+                            <div className="animate-spin w-6 h-6 border-2 border-primary/30 border-t-primary mx-auto mb-3" />
                             Carregando...
                         </div>
                     ) : inscricoes.length === 0 ? (
                         <div className="text-center py-12 text-text-secondary">
-                            <p className="text-4xl mb-2">📋</p>
+                            <div className="mx-auto mb-3 text-text-secondary/40">
+                                <ClipboardListIcon />
+                            </div>
                             <p>Nenhuma inscrição encontrada para esta ação.</p>
                         </div>
                     ) : (
@@ -282,8 +309,8 @@ export default function AdminPage() {
                                             <tr
                                                 key={insc.id}
                                                 className={`transition-colors ${insc.confirmado_presenca
-                                                        ? "bg-green-50"
-                                                        : "hover:bg-gray-50"
+                                                    ? "bg-green-50"
+                                                    : "hover:bg-gray-50"
                                                     }`}
                                             >
                                                 <td className="px-6 py-4">
@@ -310,8 +337,8 @@ export default function AdminPage() {
                                                             togglePresenca(insc.id, insc.confirmado_presenca)
                                                         }
                                                         className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${insc.confirmado_presenca
-                                                                ? "bg-primary"
-                                                                : "bg-gray-300"
+                                                            ? "bg-primary"
+                                                            : "bg-gray-300"
                                                             }`}
                                                         title={
                                                             insc.confirmado_presenca
@@ -321,8 +348,8 @@ export default function AdminPage() {
                                                     >
                                                         <span
                                                             className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${insc.confirmado_presenca
-                                                                    ? "translate-x-6"
-                                                                    : "translate-x-0"
+                                                                ? "translate-x-6"
+                                                                : "translate-x-0"
                                                                 }`}
                                                         />
                                                     </button>

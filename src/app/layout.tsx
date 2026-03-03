@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "IADVH - Voluntariado Social",
-  description: "Sistema de Gamificação e Monitoramento de Compromisso Social do Instituto IADVH",
+  title: "IADVh - Voluntariado Social",
+  description: "Sistema de Gamificação e Monitoramento de Compromisso Social do Instituto de Apoio ao Desenvolvimento da Vida Humana",
 };
 
 export default function RootLayout({

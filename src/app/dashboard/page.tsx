@@ -2,8 +2,77 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import type { RankingSetor } from "@/lib/types";
+
+/* ── SVG Icon Components ── */
+
+function TrophyIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+            <path d="M4 22h16" />
+            <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+            <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+            <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+        </svg>
+    );
+}
+
+function CheckCircleIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <path d="m9 12 2 2 4-4" />
+        </svg>
+    );
+}
+
+function BuildingIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect width="16" height="20" x="4" y="2" rx="2" ry="2" />
+            <path d="M9 22v-4h6v4" />
+            <path d="M8 6h.01" /><path d="M16 6h.01" />
+            <path d="M8 10h.01" /><path d="M16 10h.01" />
+            <path d="M8 14h.01" /><path d="M16 14h.01" />
+        </svg>
+    );
+}
+
+function CalendarIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M8 2v4" /><path d="M16 2v4" />
+            <rect width="18" height="18" x="3" y="4" rx="2" />
+            <path d="M3 10h18" />
+        </svg>
+    );
+}
+
+function GlobeIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+            <path d="M2 12h20" />
+        </svg>
+    );
+}
+
+function MedalIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15" />
+            <path d="M11 12 5.12 2.2" /><path d="m13 12 5.88-9.8" />
+            <path d="M8 7h8" />
+            <circle cx="12" cy="17" r="5" />
+            <path d="M12 18v-2h-.5" />
+        </svg>
+    );
+}
 
 interface DashboardData {
     ranking: RankingSetor[];
@@ -11,6 +80,27 @@ interface DashboardData {
     totalExternos: number;
     totalAcoes: number;
 }
+
+const medalLabels = ["1º", "2º", "3º"];
+const medalColors = [
+    "from-yellow-400 to-amber-500",
+    "from-gray-300 to-gray-400",
+    "from-amber-600 to-amber-700",
+];
+const medalBadgeStyles = [
+    "bg-yellow-100 text-yellow-800 border border-yellow-300",
+    "bg-gray-100 text-gray-700 border border-gray-300",
+    "bg-amber-100 text-amber-800 border border-amber-300",
+];
+const podiumHeights = ["h-44", "h-36", "h-28"];
+const podiumOrder = [1, 0, 2];
+
+const statsConfig = [
+    { label: "Participações Confirmadas", icon: CheckCircleIcon },
+    { label: "Setores Ativos", icon: BuildingIcon },
+    { label: "Ações Disponíveis", icon: CalendarIcon },
+    { label: "Voluntários Externos", icon: GlobeIcon },
+];
 
 export default function DashboardPage() {
     const [data, setData] = useState<DashboardData>({
@@ -33,7 +123,6 @@ export default function DashboardPage() {
             startDate = new Date(now.getFullYear(), 0, 1).toISOString();
         }
 
-        // Fetch all confirmed inscriptions with collaborator and sector info
         const { data: inscricoes } = await supabase
             .from("inscricoes")
             .select(`
@@ -51,7 +140,6 @@ export default function DashboardPage() {
             .eq("confirmado_presenca", true)
             .gte("created_at", startDate);
 
-        // Fetch all sectors with member counts
         const { data: setores } = await supabase
             .from("setores")
             .select("id, nome");
@@ -70,19 +158,16 @@ export default function DashboardPage() {
             return;
         }
 
-        // Build ranking: count unique collaborator IDs per sector
         const setorMap = new Map<string, Set<string>>();
         const memberCount = new Map<string, number>();
         let externCount = 0;
 
-        // Count total members per sector (internal only)
         colaboradores.forEach((c) => {
             if (!c.is_externo) {
                 memberCount.set(c.setor_id, (memberCount.get(c.setor_id) || 0) + 1);
             }
         });
 
-        // Count unique participants per sector
         inscricoes.forEach((insc) => {
             const colab = insc.colaboradores as unknown as {
                 id: string;
@@ -104,7 +189,6 @@ export default function DashboardPage() {
             setorMap.get(setorId)!.add(colab.id);
         });
 
-        // Build ranking array
         const ranking: RankingSetor[] = setores
             .map((s) => {
                 const uniqueParticipants = setorMap.get(s.id)?.size || 0;
@@ -133,7 +217,6 @@ export default function DashboardPage() {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
-    // Supabase Realtime
     useEffect(() => {
         const channel = supabase
             .channel("realtime-inscricoes")
@@ -152,35 +235,26 @@ export default function DashboardPage() {
     }, [fetchDashboardData]);
 
     const top3 = data.ranking.slice(0, 3);
-    const rest = data.ranking.slice(3);
     const maxParticipants = Math.max(...data.ranking.map((r) => r.participantes_unicos), 1);
 
-    const medalEmojis = ["🥇", "🥈", "🥉"];
-    const medalColors = [
-        "from-yellow-400 to-amber-500",
-        "from-gray-300 to-gray-400",
-        "from-amber-600 to-amber-700",
+    const statsValues = [
+        data.totalParticipacoes,
+        data.ranking.filter((r) => r.participantes_unicos > 0).length,
+        data.totalAcoes,
+        data.totalExternos,
     ];
-    const medalBgColors = ["bg-yellow-50 border-yellow-300", "bg-gray-50 border-gray-300", "bg-amber-50 border-amber-300"];
-    const podiumHeights = ["h-44", "h-36", "h-28"];
-    const podiumOrder = [1, 0, 2]; // Silver, Gold, Bronze display order
 
     return (
         <div className="min-h-screen bg-primary">
             {/* Header */}
-            <header className="bg-primary-dark/30 backdrop-blur-sm border-b border-white/10">
+            <header className="bg-primary-dark/50 border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                            <span className="text-primary font-black text-xs">IA</span>
-                        </div>
-                        <div>
-                            <span className="font-bold text-white">IADVH</span>
-                            <span className="text-accent text-xs ml-2">Dashboard ao Vivo</span>
-                        </div>
+                    <Link href="/" className="flex items-center gap-3" aria-label="Voltar para início">
+                        <Image src="/logo.svg" alt="Logo IADVh" width={120} height={44} className="h-8 w-auto brightness-200" priority />
+                        <span className="text-accent text-xs font-medium">Dashboard ao Vivo</span>
                     </Link>
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1 text-accent text-xs">
+                        <div className="flex items-center gap-1.5 text-accent text-xs">
                             <span className="w-2 h-2 bg-accent rounded-full animate-pulse" />
                             Atualizado: {lastUpdate.toLocaleTimeString("pt-BR")}
                         </div>
@@ -194,9 +268,12 @@ export default function DashboardPage() {
             <main className="max-w-7xl mx-auto px-4 md:px-6 py-8">
                 {/* Title */}
                 <div className="text-center mb-8 animate-fade-in-up">
-                    <h1 className="text-3xl md:text-4xl font-black text-white mb-2">
-                        🏆 Ranking de Voluntariado
-                    </h1>
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                        <span className="text-white"><TrophyIcon /></span>
+                        <h1 className="text-3xl md:text-4xl font-black text-white">
+                            Ranking de Voluntariado
+                        </h1>
+                    </div>
                     <p className="text-accent text-sm">
                         Acompanhe o engajamento dos setores em tempo real
                     </p>
@@ -204,20 +281,20 @@ export default function DashboardPage() {
 
                 {/* Period Toggle */}
                 <div className="flex justify-center mb-8">
-                    <div className="bg-primary-dark/40 backdrop-blur-sm rounded-full p-1 flex">
+                    <div className="bg-primary-dark/40 p-1 flex">
                         <button
-                            className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${periodo === "mes"
-                                    ? "bg-white text-primary shadow-lg"
-                                    : "text-white/70 hover:text-white"
+                            className={`px-6 py-2 text-sm font-semibold transition-all ${periodo === "mes"
+                                ? "bg-white text-primary shadow-lg"
+                                : "text-white/70 hover:text-white"
                                 }`}
                             onClick={() => setPeriodo("mes")}
                         >
                             Setor do Mês
                         </button>
                         <button
-                            className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${periodo === "ano"
-                                    ? "bg-white text-primary shadow-lg"
-                                    : "text-white/70 hover:text-white"
+                            className={`px-6 py-2 text-sm font-semibold transition-all ${periodo === "ano"
+                                ? "bg-white text-primary shadow-lg"
+                                : "text-white/70 hover:text-white"
                                 }`}
                             onClick={() => setPeriodo("ano")}
                         >
@@ -228,26 +305,23 @@ export default function DashboardPage() {
 
                 {loading ? (
                     <div className="text-center py-16 text-white/70">
-                        <div className="animate-spin w-8 h-8 border-2 border-white/30 border-t-white rounded-full mx-auto mb-4" />
+                        <div className="animate-spin w-8 h-8 border-2 border-white/30 border-t-white mx-auto mb-4" />
                         Carregando dados...
                     </div>
                 ) : (
                     <>
                         {/* Stats Cards */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-                            {[
-                                { label: "Participações Confirmadas", value: data.totalParticipacoes, icon: "✅" },
-                                { label: "Setores Ativos", value: data.ranking.filter((r) => r.participantes_unicos > 0).length, icon: "🏢" },
-                                { label: "Ações Disponíveis", value: data.totalAcoes, icon: "📅" },
-                                { label: "Voluntários Externos", value: data.totalExternos, icon: "🌍" },
-                            ].map((stat, i) => (
+                            {statsConfig.map((stat, i) => (
                                 <div
                                     key={stat.label}
-                                    className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-[var(--radius-md)] p-4 text-center animate-fade-in-up"
+                                    className="bg-white/10 border border-white/20 p-4 text-center animate-fade-in-up"
                                     style={{ animationDelay: `${i * 0.1}s` }}
                                 >
-                                    <p className="text-2xl mb-1">{stat.icon}</p>
-                                    <p className="text-2xl md:text-3xl font-black text-white">{stat.value}</p>
+                                    <div className="flex justify-center mb-2 text-accent">
+                                        <stat.icon />
+                                    </div>
+                                    <p className="text-2xl md:text-3xl font-black text-white">{statsValues[i]}</p>
                                     <p className="text-xs text-accent font-medium">{stat.label}</p>
                                 </div>
                             ))}
@@ -256,8 +330,9 @@ export default function DashboardPage() {
                         {/* Podium */}
                         {top3.length > 0 && (
                             <div className="mb-10">
-                                <h2 className="text-center text-white font-bold text-lg mb-6">
-                                    {periodo === "mes" ? "🏅 Pódio do Mês" : "🏅 Pódio do Ano"}
+                                <h2 className="text-center text-white font-bold text-lg mb-6 flex items-center justify-center gap-2">
+                                    <MedalIcon />
+                                    {periodo === "mes" ? "Pódio do Mês" : "Pódio do Ano"}
                                 </h2>
                                 <div className="flex items-end justify-center gap-3 md:gap-6 max-w-2xl mx-auto">
                                     {podiumOrder.map((idx) => {
@@ -269,15 +344,17 @@ export default function DashboardPage() {
                                                 className="flex-1 flex flex-col items-center animate-scale-in"
                                                 style={{ animationDelay: `${idx * 0.15}s` }}
                                             >
-                                                {/* Medal */}
-                                                <span className="text-3xl md:text-4xl mb-2">{medalEmojis[idx]}</span>
+                                                {/* Medal Badge */}
+                                                <span className={`text-sm font-black px-3 py-1 mb-2 ${medalBadgeStyles[idx]}`}>
+                                                    {medalLabels[idx]}
+                                                </span>
                                                 {/* Sector name */}
                                                 <p className="text-white font-bold text-xs md:text-sm text-center mb-2 line-clamp-2 min-h-[2.5rem]">
                                                     {item.setor_nome}
                                                 </p>
                                                 {/* Podium bar */}
                                                 <div
-                                                    className={`w-full ${podiumHeights[idx]} bg-gradient-to-t ${medalColors[idx]} rounded-t-[var(--radius-md)] flex flex-col items-center justify-center p-2 shadow-lg`}
+                                                    className={`w-full ${podiumHeights[idx]} bg-gradient-to-t ${medalColors[idx]} flex flex-col items-center justify-center p-2 shadow-lg`}
                                                 >
                                                     <p className="text-2xl md:text-3xl font-black text-white">
                                                         {item.participantes_unicos}
@@ -297,7 +374,7 @@ export default function DashboardPage() {
                         )}
 
                         {/* Full Ranking List */}
-                        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-[var(--radius-md)] overflow-hidden">
+                        <div className="bg-white/10 border border-white/20 overflow-hidden">
                             <div className="px-6 py-4 border-b border-white/10">
                                 <h2 className="text-white font-bold">Ranking Completo por Setor</h2>
                             </div>
@@ -311,7 +388,9 @@ export default function DashboardPage() {
                                         {/* Position */}
                                         <div className="w-8 text-center">
                                             {i < 3 ? (
-                                                <span className="text-xl">{medalEmojis[i]}</span>
+                                                <span className={`text-xs font-black px-2 py-0.5 ${medalBadgeStyles[i]}`}>
+                                                    {medalLabels[i]}
+                                                </span>
                                             ) : (
                                                 <span className="text-white/50 font-bold text-sm">
                                                     {i + 1}º
@@ -331,9 +410,9 @@ export default function DashboardPage() {
 
                                         {/* Engagement bar */}
                                         <div className="hidden md:block flex-1 max-w-xs">
-                                            <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
+                                            <div className="w-full bg-white/10 h-3 overflow-hidden">
                                                 <div
-                                                    className="h-full bg-gradient-to-r from-accent to-primary-light rounded-full transition-all duration-700"
+                                                    className="h-full bg-gradient-to-r from-accent to-primary-light transition-all duration-700"
                                                     style={{
                                                         width: `${(item.participantes_unicos / maxParticipants) * 100}%`,
                                                     }}
@@ -357,8 +436,10 @@ export default function DashboardPage() {
 
                         {/* External Volunteers Highlight */}
                         {data.totalExternos > 0 && (
-                            <div className="mt-8 bg-accent/20 backdrop-blur-sm border border-accent/30 rounded-[var(--radius-md)] p-6 text-center animate-fade-in-up">
-                                <span className="text-4xl block mb-2">🌍</span>
+                            <div className="mt-8 bg-accent/20 border border-accent/30 p-6 text-center animate-fade-in-up">
+                                <div className="flex justify-center mb-2 text-white">
+                                    <GlobeIcon />
+                                </div>
                                 <p className="text-white font-bold text-xl">
                                     {data.totalExternos} Voluntário{data.totalExternos > 1 ? "s" : ""} Externo{data.totalExternos > 1 ? "s" : ""}
                                 </p>
@@ -373,9 +454,10 @@ export default function DashboardPage() {
 
             {/* Footer */}
             <footer className="border-t border-white/10 py-6 mt-8">
-                <div className="max-w-7xl mx-auto px-6 text-center">
+                <div className="max-w-7xl mx-auto px-4 md:px-6 flex flex-col items-center gap-2">
+                    <Image src="/logo.svg" alt="Logo IADVh" width={100} height={36} className="h-6 w-auto brightness-200 opacity-60" />
                     <p className="text-accent/70 text-xs">
-                        IADVH • Instituto de Apoio ao Desenvolvimento da Vida Humana • Dashboard de Voluntariado
+                        IADVh — Instituto de Apoio ao Desenvolvimento da Vida Humana — Dashboard de Voluntariado
                     </p>
                 </div>
             </footer>
