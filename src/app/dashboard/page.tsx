@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
@@ -126,6 +126,7 @@ const medalBadgeStyles = [
 ];
 const podiumHeights = ["h-44", "h-36", "h-28"];
 const podiumOrder = [1, 0, 2];
+const medalEmojis = ["🥇", "🥈", "🥉"];
 
 const statsConfig = [
     { label: "Participações Confirmadas", icon: CheckCircleIcon },
@@ -310,6 +311,29 @@ export default function DashboardPage() {
     const top3 = data.ranking.slice(0, 3);
     const maxParticipants = Math.max(...data.ranking.map((r) => r.participantes_unicos), 1);
 
+    // Scroll reveal for Podium
+    const podiumRef = useRef<HTMLDivElement>(null);
+    const [podiumVisible, setPodiumVisible] = useState(false);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => { if (entry.isIntersecting) setPodiumVisible(true); },
+            { threshold: 0.2 }
+        );
+        if (podiumRef.current) observer.observe(podiumRef.current);
+        return () => observer.disconnect();
+    }, [loading]);
+
+    // Fullscreen toggle
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().then(() => setIsFullscreen(true));
+        } else {
+            document.exitFullscreen().then(() => setIsFullscreen(false));
+        }
+    }
+
     const statsValues = [
         data.totalParticipacoes,
         data.ranking.filter((r) => r.participantes_unicos > 0).length,
@@ -346,12 +370,19 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-center gap-2 mb-2">
                         <span className="text-white"><TrophyIcon /></span>
                         <h1 className="text-3xl md:text-4xl font-black text-white">
-                            Ranking de Voluntariado
+                            Ranking de Compromisso Social
                         </h1>
                     </div>
                     <p className="text-accent text-sm">
                         Acompanhe o engajamento dos setores em tempo real
                     </p>
+                    <button
+                        onClick={toggleFullscreen}
+                        className="mt-3 px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded transition-all border border-white/20"
+                        title={isFullscreen ? "Sair da tela cheia" : "Modo tela cheia"}
+                    >
+                        {isFullscreen ? "✖ Sair Tela Cheia" : "⛶ Expandir"}
+                    </button>
                 </div>
 
                 {/* Period Toggle */}
@@ -402,173 +433,11 @@ export default function DashboardPage() {
                             ))}
                         </div>
 
-                        {/* Period Comparison */}
-                        {(data.previousParticipacoes > 0 || data.totalParticipacoes > 0) && (
-                            <div className="bg-white/5 border border-white/10 p-4 mb-10 animate-fade-in-up">
-                                <p className="text-xs text-accent/70 font-medium uppercase tracking-wider mb-3">
-                                    Comparativo vs {periodo === "mes" ? "mês anterior" : "ano anterior"}
-                                </p>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {(() => {
-                                        const delta = data.totalParticipacoes - data.previousParticipacoes;
-                                        const pct = data.previousParticipacoes > 0
-                                            ? Math.round((delta / data.previousParticipacoes) * 100)
-                                            : data.totalParticipacoes > 0 ? 100 : 0;
-                                        const isUp = delta >= 0;
-                                        return (
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 flex items-center justify-center ${isUp ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
-                                                    {isUp ? <TrendUpIcon /> : <TrendDownIcon />}
-                                                </div>
-                                                <div>
-                                                    <p className="text-white font-bold text-sm">
-                                                        {isUp ? "+" : ""}{delta} participações
-                                                    </p>
-                                                    <p className={`text-xs font-semibold ${isUp ? "text-green-300" : "text-red-300"}`}>
-                                                        {isUp ? "+" : ""}{pct}% vs período anterior
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-                                    {(() => {
-                                        const currentSetores = data.ranking.filter((r) => r.participantes_unicos > 0).length;
-                                        const delta = currentSetores - data.previousSetoresAtivos;
-                                        const isUp = delta >= 0;
-                                        return (
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 flex items-center justify-center ${isUp ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
-                                                    {isUp ? <TrendUpIcon /> : <TrendDownIcon />}
-                                                </div>
-                                                <div>
-                                                    <p className="text-white font-bold text-sm">
-                                                        {isUp ? "+" : ""}{delta} setores ativos
-                                                    </p>
-                                                    <p className={`text-xs font-semibold ${isUp ? "text-green-300" : "text-red-300"}`}>
-                                                        {data.previousSetoresAtivos > 0
-                                                            ? `${isUp ? "+" : ""}${Math.round((delta / data.previousSetoresAtivos) * 100)}%`
-                                                            : currentSetores > 0 ? "Novo" : "—"
-                                                        } vs período anterior
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-                        )}
-                        {/* Podium */}
-                        {top3.length > 0 && (
-                            <div className="mb-10">
-                                <h2 className="text-center text-white font-bold text-lg mb-6 flex items-center justify-center gap-2">
-                                    <MedalIcon />
-                                    {periodo === "mes" ? "Pódio do Mês" : "Pódio do Ano"}
-                                </h2>
-                                <div className="flex items-end justify-center gap-3 md:gap-6 max-w-2xl mx-auto">
-                                    {podiumOrder.map((idx) => {
-                                        const item = top3[idx];
-                                        if (!item) return <div key={idx} className="flex-1" />;
-                                        return (
-                                            <div
-                                                key={item.setor_id}
-                                                className="flex-1 flex flex-col items-center animate-scale-in"
-                                                style={{ animationDelay: `${idx * 0.15}s` }}
-                                            >
-                                                {/* Medal Badge */}
-                                                <span className={`text-sm font-black px-3 py-1 mb-2 ${medalBadgeStyles[idx]}`}>
-                                                    {medalLabels[idx]}
-                                                </span>
-                                                {/* Sector name */}
-                                                <p className="text-white font-bold text-xs md:text-sm text-center mb-2 line-clamp-2 min-h-[2.5rem]">
-                                                    {item.setor_nome}
-                                                </p>
-                                                {/* Podium bar */}
-                                                <div
-                                                    className={`w-full ${podiumHeights[idx]} bg-gradient-to-t ${medalColors[idx]} flex flex-col items-center justify-center p-2 shadow-lg`}
-                                                >
-                                                    <p className="text-2xl md:text-3xl font-black text-white">
-                                                        {item.participantes_unicos}
-                                                    </p>
-                                                    <p className="text-[10px] text-white/80 font-medium">
-                                                        participações
-                                                    </p>
-                                                    <p className="text-[10px] text-white/60 mt-1">
-                                                        {item.taxa_engajamento}% engajamento
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Full Ranking List */}
-                        <div className="bg-white/10 border border-white/20 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-white/10">
-                                <h2 className="text-white font-bold">Ranking Completo por Setor</h2>
-                            </div>
-                            <div className="divide-y divide-white/10">
-                                {data.ranking.map((item, i) => (
-                                    <div
-                                        key={item.setor_id}
-                                        className="px-6 py-4 flex items-center gap-4 hover:bg-white/5 transition-colors animate-slide-in-right"
-                                        style={{ animationDelay: `${i * 0.05}s` }}
-                                    >
-                                        {/* Position */}
-                                        <div className="w-8 text-center">
-                                            {i < 3 ? (
-                                                <span className={`text-xs font-black px-2 py-0.5 ${medalBadgeStyles[i]}`}>
-                                                    {medalLabels[i]}
-                                                </span>
-                                            ) : (
-                                                <span className="text-white/50 font-bold text-sm">
-                                                    {i + 1}º
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {/* Name + badge */}
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-white font-semibold text-sm truncate">
-                                                {item.setor_nome}
-                                            </p>
-                                            <p className="text-accent text-xs">
-                                                {item.participantes_unicos} de {item.total_membros} membros
-                                            </p>
-                                        </div>
-
-                                        {/* Engagement bar */}
-                                        <div className="hidden md:block flex-1 max-w-xs">
-                                            <div className="w-full bg-white/10 h-3 overflow-hidden">
-                                                <div
-                                                    className="h-full bg-gradient-to-r from-accent to-primary-light transition-all duration-700"
-                                                    style={{
-                                                        width: `${(item.participantes_unicos / maxParticipants) * 100}%`,
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Engagement % */}
-                                        <div className="text-right">
-                                            <p className="text-white font-bold text-lg">
-                                                {item.taxa_engajamento}%
-                                            </p>
-                                            <p className="text-accent text-[10px] font-medium">
-                                                engajamento
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Community Engagement Card */}
-                        <div className="mt-8 bg-white/10 border border-white/20 overflow-hidden animate-fade-in-up">
+                        {/* Engajamento comunidade IADVH */}
+                        <div className="bg-white/10 border border-white/20 overflow-hidden animate-fade-in-up">
                             <div className="px-6 py-4 border-b border-white/10 flex items-center gap-2">
                                 <span className="text-accent"><HeartHandshakeIcon /></span>
-                                <h2 className="text-white font-bold">Engajamento Comunitário</h2>
+                                <h2 className="text-white font-bold">Engajamento comunidade IADVH</h2>
                             </div>
                             <div className="p-6">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -622,6 +491,169 @@ export default function DashboardPage() {
                                         </span>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+
+                        {/* Period Comparison */}
+                        {(data.previousParticipacoes > 0 || data.totalParticipacoes > 0) && (
+                            <div className="bg-white/5 border border-white/10 p-4 mt-8 animate-fade-in-up">
+                                <p className="text-xs text-accent/70 font-medium uppercase tracking-wider mb-3">
+                                    Comparativo vs {periodo === "mes" ? "mês anterior" : "ano anterior"}
+                                </p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {(() => {
+                                        const delta = data.totalParticipacoes - data.previousParticipacoes;
+                                        const pct = data.previousParticipacoes > 0
+                                            ? Math.round((delta / data.previousParticipacoes) * 100)
+                                            : data.totalParticipacoes > 0 ? 100 : 0;
+                                        const isUp = delta >= 0;
+                                        return (
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-8 h-8 flex items-center justify-center ${isUp ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
+                                                    {isUp ? <TrendUpIcon /> : <TrendDownIcon />}
+                                                </div>
+                                                <div>
+                                                    <p className="text-white font-bold text-sm">
+                                                        {isUp ? "+" : ""}{delta} participações
+                                                    </p>
+                                                    <p className={`text-xs font-semibold ${isUp ? "text-green-300" : "text-red-300"}`}>
+                                                        {isUp ? "+" : ""}{pct}% vs período anterior
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                    {(() => {
+                                        const currentSetores = data.ranking.filter((r) => r.participantes_unicos > 0).length;
+                                        const delta = currentSetores - data.previousSetoresAtivos;
+                                        const isUp = delta >= 0;
+                                        return (
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-8 h-8 flex items-center justify-center ${isUp ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
+                                                    {isUp ? <TrendUpIcon /> : <TrendDownIcon />}
+                                                </div>
+                                                <div>
+                                                    <p className="text-white font-bold text-sm">
+                                                        {isUp ? "+" : ""}{delta} setores ativos
+                                                    </p>
+                                                    <p className={`text-xs font-semibold ${isUp ? "text-green-300" : "text-red-300"}`}>
+                                                        {data.previousSetoresAtivos > 0
+                                                            ? `${isUp ? "+" : ""}${Math.round((delta / data.previousSetoresAtivos) * 100)}%`
+                                                            : currentSetores > 0 ? "Novo" : "—"
+                                                        } vs período anterior
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Podium */}
+                        {top3.length > 0 && (
+                            <div className="mt-8" ref={podiumRef}>
+                                <h2 className="text-center text-white font-bold text-lg mb-6 flex items-center justify-center gap-2">
+                                    <MedalIcon />
+                                    {periodo === "mes" ? "Pódio do Mês" : "Pódio do Ano"}
+                                </h2>
+                                <div className={`flex items-end justify-center gap-3 md:gap-6 max-w-2xl mx-auto transition-all duration-700 ${podiumVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+                                    {podiumOrder.map((idx) => {
+                                        const item = top3[idx];
+                                        if (!item) return <div key={idx} className="flex-1" />;
+                                        return (
+                                            <div
+                                                key={item.setor_id}
+                                                className="flex-1 flex flex-col items-center animate-scale-in"
+                                                style={{ animationDelay: `${idx * 0.15}s` }}
+                                            >
+                                                {/* Medal Emoji */}
+                                                <span className="text-3xl mb-1">{medalEmojis[idx]}</span>
+                                                {/* Medal Badge */}
+                                                <span className={`text-sm font-black px-3 py-1 mb-2 ${medalBadgeStyles[idx]}`}>
+                                                    {medalLabels[idx]}
+                                                </span>
+                                                {/* Sector name */}
+                                                <p className="text-white font-bold text-xs md:text-sm text-center mb-2 line-clamp-2 min-h-[2.5rem]">
+                                                    {item.setor_nome}
+                                                </p>
+                                                {/* Podium bar */}
+                                                <div
+                                                    className={`w-full ${podiumHeights[idx]} bg-gradient-to-t ${medalColors[idx]} flex flex-col items-center justify-center p-2 shadow-lg`}
+                                                >
+                                                    <p className="text-2xl md:text-3xl font-black text-white">
+                                                        {item.participantes_unicos}
+                                                    </p>
+                                                    <p className="text-[10px] text-white/80 font-medium">
+                                                        participações
+                                                    </p>
+                                                    <p className="text-[10px] text-white/60 mt-1">
+                                                        {item.taxa_engajamento}% engajamento
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Full Ranking List */}
+                        <div className="mt-8 bg-white/10 border border-white/20 overflow-hidden">
+                            <div className="px-6 py-4 border-b border-white/10">
+                                <h2 className="text-white font-bold">Ranking Completo por Setor</h2>
+                            </div>
+                            <div className="divide-y divide-white/10">
+                                {data.ranking.map((item, i) => (
+                                    <div
+                                        key={item.setor_id}
+                                        className="px-6 py-4 flex items-center gap-4 hover:bg-white/5 transition-colors animate-slide-in-right"
+                                        style={{ animationDelay: `${i * 0.05}s` }}
+                                    >
+                                        {/* Position */}
+                                        <div className="w-8 text-center">
+                                            {i < 3 ? (
+                                                <span className="text-lg mr-1">{medalEmojis[i]}</span>
+                                            ) : (
+                                                <span className="text-white/50 font-bold text-sm">
+                                                    {i + 1}º
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Name + badge */}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-white font-semibold text-sm truncate">
+                                                {item.setor_nome}
+                                            </p>
+                                            <p className="text-accent text-xs">
+                                                {item.participantes_unicos} de {item.total_membros} membros
+                                            </p>
+                                        </div>
+
+                                        {/* Engagement bar */}
+                                        <div className="hidden md:block flex-1 max-w-xs">
+                                            <div className="w-full bg-white/10 h-3 overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-accent to-primary-light transition-all duration-700"
+                                                    style={{
+                                                        width: `${(item.participantes_unicos / maxParticipants) * 100}%`,
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Engagement % */}
+                                        <div className="text-right">
+                                            <p className="text-white font-bold text-lg">
+                                                {item.taxa_engajamento}%
+                                            </p>
+                                            <p className="text-accent text-[10px] font-medium">
+                                                engajamento
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </>

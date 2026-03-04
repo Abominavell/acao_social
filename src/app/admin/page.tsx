@@ -109,8 +109,11 @@ function AdminContent() {
         vagas_limite: 20,
         vagas_por_setor: {},
     });
+    const [formError, setFormError] = useState<string | null>(null);
 
     const [filterTipo, setFilterTipo] = useState<"todos" | "sede" | "externos">("todos");
+    const [filterStatus, setFilterStatus] = useState<"todas" | "realizadas" | "nao_realizadas">("todas");
+    const [filterMonth, setFilterMonth] = useState<string>("");
     const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
     const [setores, setSetores] = useState<Setor[]>([]);
 
@@ -130,6 +133,14 @@ function AdminContent() {
             setAcoes(data);
             if (data.length > 0 && !selectedAcao) setSelectedAcao(data[0].id);
         }
+    }
+
+    function validateVagasSetor(vagasPorSetor: Record<string, number>, vagasLimite: number): string | null {
+        const cleanValues = Object.values(vagasPorSetor).filter(v => !isNaN(v) && v > 0);
+        if (cleanValues.length === 0) return "Preencha pelo menos 1 setor com vagas específicas.";
+        const soma = cleanValues.reduce((a, b) => a + b, 0);
+        if (soma > vagasLimite) return `A soma das vagas por setor (${soma}) ultrapassa o limite global (${vagasLimite}).`;
+        return null;
     }
 
     async function fetchInscricoes(acaoId: string) {
@@ -164,6 +175,7 @@ function AdminContent() {
 
     async function handleCreateAcao(e: React.FormEvent) {
         e.preventDefault();
+        setFormError(null);
         if (!newAcao.titulo || !newAcao.data_evento) return;
 
         // Clean up empty sector limits
@@ -173,6 +185,13 @@ function AdminContent() {
                 delete cleanVagasSetor[k];
             }
         });
+
+        // Validate sector vacancies
+        const validationErr = validateVagasSetor(cleanVagasSetor, newAcao.vagas_limite);
+        if (validationErr) {
+            setFormError(validationErr);
+            return;
+        }
 
         const { error } = await supabase.from("acoes_sociais").insert({
             titulo: newAcao.titulo,
@@ -186,6 +205,7 @@ function AdminContent() {
             console.error("Erro ao criar ação:", error);
             return;
         }
+        setFormError(null);
         setNewAcao({ titulo: "", descricao: "", data_evento: "", vagas_limite: 20, vagas_por_setor: {} });
         setShowCreateForm(false);
         await fetchAcoes();
@@ -193,6 +213,7 @@ function AdminContent() {
 
     async function handleEditAcao(e: React.FormEvent) {
         e.preventDefault();
+        setFormError(null);
         if (!editingAcao) return;
 
         const cleanVagasSetor = editingAcao.vagas_por_setor ? { ...editingAcao.vagas_por_setor } : {};
@@ -201,6 +222,13 @@ function AdminContent() {
                 delete cleanVagasSetor[k];
             }
         });
+
+        // Validate sector vacancies
+        const validationErr = validateVagasSetor(cleanVagasSetor, editingAcao.vagas_limite);
+        if (validationErr) {
+            setFormError(validationErr);
+            return;
+        }
 
         const updatePayload = {
             titulo: editingAcao.titulo,
@@ -222,6 +250,7 @@ function AdminContent() {
             return;
         }
 
+        setFormError(null);
         setEditingAcao(null);
         await fetchAcoes();
     }
@@ -280,7 +309,7 @@ function AdminContent() {
 
     function formatDate(dateStr: string) {
         return new Date(dateStr).toLocaleDateString("pt-BR", {
-            day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+            weekday: "long", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
         });
     }
 
@@ -311,8 +340,17 @@ function AdminContent() {
     for (let i = 0; i < firstDayOfMonth; i++) calendarDays.push(null);
     for (let i = 1; i <= daysInMonth; i++) calendarDays.push(new Date(year, month, i));
 
+    // Filter actions by Realizadas/Não realizadas
+    const now = new Date();
+    const filteredAcoesByStatus = acoes.filter(a => {
+        if (filterStatus === "todas") return true;
+        const eventDate = new Date(a.data_evento);
+        if (filterStatus === "realizadas") return eventDate < now;
+        return eventDate >= now;
+    });
+
     const actionsByDate: Record<string, AcaoSocial[]> = {};
-    acoes.forEach(a => {
+    filteredAcoesByStatus.forEach(a => {
         const dStr = a.data_evento.split("T")[0];
         if (!actionsByDate[dStr]) actionsByDate[dStr] = [];
         actionsByDate[dStr].push(a);
@@ -325,12 +363,43 @@ function AdminContent() {
     const selectedAcaoData = acoes.find((a) => a.id === selectedAcao);
 
     const filteredInscricoes = inscricoes.filter(insc => {
-        if (filterTipo === "todos") return true;
-        const colab = insc.colaboradores as unknown as { is_externo: boolean };
-        if (filterTipo === "externos" && colab?.is_externo) return true;
-        if (filterTipo === "sede" && !colab?.is_externo) return true;
-        return false;
+        // Filter by tipo
+        if (filterTipo !== "todos") {
+            const colab = insc.colaboradores as unknown as { is_externo: boolean };
+            if (filterTipo === "externos" && !colab?.is_externo) return false;
+            if (filterTipo === "sede" && colab?.is_externo) return false;
+        }
+        // Filter by month/year
+        if (filterMonth) {
+            const inscDate = new Date(insc.created_at);
+            const [fYear, fMonth] = filterMonth.split("-").map(Number);
+            if (inscDate.getFullYear() !== fYear || inscDate.getMonth() + 1 !== fMonth) return false;
+        }
+        return true;
     });
+
+    // Parse external volunteer name: "Nome (Unidade)" → { name, unit }
+    function parseExternoName(nome: string): { name: string; unit: string } {
+        const match = nome.match(/^(.+?)\s*\((.+)\)$/);
+        if (match) return { name: match[1].trim(), unit: match[2].trim() };
+        return { name: nome, unit: "—" };
+    }
+
+    // Generate month options for the filter
+    const monthOptions: { value: string; label: string }[] = [];
+    const uniqueMonths = new Set<string>();
+    inscricoes.forEach(insc => {
+        const d = new Date(insc.created_at);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (!uniqueMonths.has(key)) {
+            uniqueMonths.add(key);
+            monthOptions.push({
+                value: key,
+                label: d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+            });
+        }
+    });
+    monthOptions.sort((a, b) => b.value.localeCompare(a.value));
 
     return (
         <div className="min-h-screen bg-background">
@@ -375,9 +444,12 @@ function AdminContent() {
                 {showCreateForm && (
                     <div className="card mb-8 animate-fade-in-up">
                         <h2 className="font-bold text-lg mb-4">Nova Ação Social</h2>
+                        {formError && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 mb-4 text-sm rounded">{formError}</div>
+                        )}
                         <form onSubmit={handleCreateAcao} className="grid md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">Título *</label>
+                                <label className="block text-sm font-medium text-text-secondary mb-1">Nome do projeto *</label>
                                 <input className="input-field" placeholder="Ex: Campanha do Agasalho" value={newAcao.titulo} onChange={(e) => setNewAcao({ ...newAcao, titulo: e.target.value })} required />
                             </div>
                             <div>
@@ -393,7 +465,7 @@ function AdminContent() {
                                 <input type="number" className="input-field" min={1} value={newAcao.vagas_limite} onChange={(e) => setNewAcao({ ...newAcao, vagas_limite: parseInt(e.target.value) || 0 })} />
                             </div>
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-text-secondary mb-2">Vagas Específicas por Setor (Opcional)</label>
+                                <label className="block text-sm font-medium text-text-secondary mb-2">Vagas Específicas por Setor <span className="text-error">*</span></label>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 p-4 rounded border border-gray-100 max-h-48 overflow-y-auto">
                                     {setores.map(s => (
                                         <div key={s.id}>
@@ -430,11 +502,14 @@ function AdminContent() {
                     <div className="card mb-8 animate-fade-in-up border-2 border-primary">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="font-bold text-lg">Editar Ação</h2>
-                            <button onClick={() => setEditingAcao(null)} className="text-text-secondary hover:text-text-primary p-1"><CloseIcon /></button>
+                            <button onClick={() => { setEditingAcao(null); setFormError(null); }} className="text-text-secondary hover:text-text-primary p-1"><CloseIcon /></button>
                         </div>
+                        {formError && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 mb-4 text-sm rounded">{formError}</div>
+                        )}
                         <form onSubmit={handleEditAcao} className="grid md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">Título *</label>
+                                <label className="block text-sm font-medium text-text-secondary mb-1">Nome do projeto *</label>
                                 <input className="input-field" value={editingAcao.titulo} onChange={(e) => setEditingAcao({ ...editingAcao, titulo: e.target.value })} required />
                             </div>
                             <div>
@@ -450,7 +525,7 @@ function AdminContent() {
                                 <input type="number" className="input-field" min={1} value={editingAcao.vagas_limite} onChange={(e) => setEditingAcao({ ...editingAcao, vagas_limite: parseInt(e.target.value) || 0 })} />
                             </div>
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-text-secondary mb-2">Vagas Específicas por Setor (Opcional)</label>
+                                <label className="block text-sm font-medium text-text-secondary mb-2">Vagas Específicas por Setor <span className="text-error">*</span></label>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 p-4 rounded border border-gray-100 max-h-48 overflow-y-auto">
                                     {setores.map(s => (
                                         <div key={s.id}>
@@ -507,7 +582,14 @@ function AdminContent() {
                 <div className="grid md:grid-cols-4 gap-4 mb-6">
                     <div className="md:col-span-2 card">
                         <div className="flex items-center justify-between mb-4">
-                            <label className="text-sm font-medium text-text-secondary">Calendário de Ações</label>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-medium text-text-secondary">Calendário de Ações</label>
+                                <div className="flex bg-gray-100 p-0.5 rounded-md">
+                                    <button onClick={() => setFilterStatus("todas")} className={`px-2 py-0.5 text-[10px] font-medium rounded ${filterStatus === "todas" ? "bg-white shadow text-primary" : "text-gray-500 hover:text-gray-700"}`}>Todas</button>
+                                    <button onClick={() => setFilterStatus("realizadas")} className={`px-2 py-0.5 text-[10px] font-medium rounded ${filterStatus === "realizadas" ? "bg-white shadow text-primary" : "text-gray-500 hover:text-gray-700"}`}>Realizadas</button>
+                                    <button onClick={() => setFilterStatus("nao_realizadas")} className={`px-2 py-0.5 text-[10px] font-medium rounded ${filterStatus === "nao_realizadas" ? "bg-white shadow text-primary" : "text-gray-500 hover:text-gray-700"}`}>Futuras</button>
+                                </div>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <button onClick={prevMonth} className="p-1 text-gray-400 hover:text-primary"><ChevronLeftIcon /></button>
                                 <span className="text-sm font-bold capitalize w-32 text-center">{monthName}</span>
@@ -527,6 +609,7 @@ function AdminContent() {
                                 const dayActions = actionsByDate[dStr] || [];
                                 const hasAction = dayActions.length > 0;
                                 const isSelected = dayActions.some(a => a.id === selectedAcao);
+                                const allInactive = hasAction && dayActions.every(a => !a.ativo);
 
                                 return (
                                     <button
@@ -537,11 +620,12 @@ function AdminContent() {
                                         disabled={!hasAction}
                                         className={`p-2 text-sm rounded transition-all flex flex-col items-center justify-center 
                                             ${isSelected ? "bg-primary text-white font-bold shadow-md" :
-                                                hasAction ? "bg-primary/10 text-primary font-bold hover:bg-primary/20 border border-primary/20" :
-                                                    "text-gray-400 hover:bg-gray-50"}`}
+                                                allInactive ? "bg-gray-100 text-gray-400 line-through opacity-60" :
+                                                    hasAction ? "bg-primary/10 text-primary font-bold hover:bg-primary/20 border border-primary/20" :
+                                                        "text-gray-400 hover:bg-gray-50"}`}
                                     >
                                         <span>{dateObj.getDate()}</span>
-                                        {hasAction && <span className={`w-1 h-1 rounded-full mt-1 ${isSelected ? "bg-white" : "bg-primary"}`} />}
+                                        {hasAction && <span className={`w-1 h-1 rounded-full mt-1 ${isSelected ? "bg-white" : allInactive ? "bg-gray-400" : "bg-primary"}`} />}
                                     </button>
                                 );
                             })}
@@ -588,13 +672,23 @@ function AdminContent() {
                 {/* Inscriptions Table */}
                 <div className="card overflow-hidden p-0">
                     <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 flex-wrap">
                             <h2 className="font-bold text-text-primary">Lista de Inscritos</h2>
                             <div className="flex bg-gray-100 p-1 rounded-md">
                                 <button onClick={() => setFilterTipo("todos")} className={`px-3 py-1 text-xs font-medium rounded ${filterTipo === "todos" ? "bg-white shadow text-primary" : "text-gray-500 hover:text-gray-700"}`}>Todos</button>
                                 <button onClick={() => setFilterTipo("sede")} className={`px-3 py-1 text-xs font-medium rounded ${filterTipo === "sede" ? "bg-white shadow text-primary" : "text-gray-500 hover:text-gray-700"}`}>Sede</button>
                                 <button onClick={() => setFilterTipo("externos")} className={`px-3 py-1 text-xs font-medium rounded ${filterTipo === "externos" ? "bg-white shadow text-primary" : "text-gray-500 hover:text-gray-700"}`}>Externos</button>
                             </div>
+                            <select
+                                className="text-xs border border-gray-200 rounded px-2 py-1.5 text-text-secondary bg-white"
+                                value={filterMonth}
+                                onChange={e => setFilterMonth(e.target.value)}
+                            >
+                                <option value="">Todos os meses</option>
+                                {monthOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
                         </div>
                         {inscricoes.length > 0 && (
                             <button onClick={exportCSV} className="btn btn-outline text-xs py-1.5 px-3 min-h-0 flex items-center gap-1.5 ml-auto sm:ml-0">
@@ -629,10 +723,13 @@ function AdminContent() {
                                         const colab = insc.colaboradores as unknown as {
                                             id: string; nome: string; is_externo: boolean; setores: { nome: string };
                                         };
+                                        const externoInfo = colab?.is_externo ? parseExternoName(colab.nome) : null;
+                                        const displayName = externoInfo ? externoInfo.name : (colab?.nome || "—");
+                                        const displaySetor = externoInfo ? externoInfo.unit : (colab?.setores?.nome || "—");
                                         return (
                                             <tr key={insc.id} className={`transition-colors ${insc.confirmado_presenca ? "bg-green-50" : "hover:bg-gray-50"}`}>
-                                                <td className="px-6 py-4"><span className="font-medium text-text-primary">{colab?.nome || "—"}</span></td>
-                                                <td className="px-6 py-4 text-sm text-text-secondary">{colab?.setores?.nome || "—"}</td>
+                                                <td className="px-6 py-4"><span className="font-medium text-text-primary">{displayName}</span></td>
+                                                <td className="px-6 py-4 text-sm text-text-secondary">{displaySetor}</td>
                                                 <td className="px-6 py-4">
                                                     {colab?.is_externo ? (
                                                         <span className="badge badge-warning">Externo</span>

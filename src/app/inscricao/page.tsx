@@ -70,6 +70,7 @@ function FilterIcon() {
 
 function formatDateShort(dateStr: string) {
     return new Date(dateStr).toLocaleDateString("pt-BR", {
+        weekday: "short",
         day: "2-digit",
         month: "short",
     });
@@ -77,6 +78,7 @@ function formatDateShort(dateStr: string) {
 
 function formatDateFull(dateStr: string) {
     return new Date(dateStr).toLocaleDateString("pt-BR", {
+        weekday: "long",
         day: "2-digit",
         month: "long",
         year: "numeric",
@@ -164,7 +166,7 @@ export default function InscricaoPage() {
     }, []);
 
     useEffect(() => {
-        if (selectedSetor) {
+        if (selectedSetor && selectedSetor !== "__show_selector__") {
             fetchColaboradores(selectedSetor);
             setSelectedColaborador("");
             setStep(2);
@@ -312,33 +314,73 @@ export default function InscricaoPage() {
                     })}
                 </div>
 
-                {/* Step 1: Setor */}
-                {/* Step 1: Setor / Externo */}
-                {step >= 1 && !success && !isExternoForm && (
+                {/* Step 1: Escolha tipo — Sede ou Externo */}
+                {step >= 1 && !success && !isExternoForm && !selectedSetor && (
                     <div className="card mb-4 animate-fade-in-up">
-                        <label className="block text-sm font-semibold text-text-primary mb-2">
-                            1. Identifique-se
+                        <label className="block text-sm font-semibold text-text-primary mb-3">
+                            1. Você é colaborador da Sede ou Externo (Filial)?
                         </label>
-                        <select className="input-field mb-4" value={selectedSetor} onChange={(e) => setSelectedSetor(e.target.value)}>
-                            <option value="">Escolha seu setor (Sede)...</option>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                className="flex flex-col items-center gap-2 p-4 border-2 border-gray-200 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-center"
+                                onClick={() => {
+                                    setIsExternoForm(false);
+                                    // Show sector selector by setting a placeholder
+                                    setSelectedSetor("__show_selector__");
+                                }}
+                            >
+                                <span className="text-2xl">🏢</span>
+                                <span className="text-sm font-semibold text-text-primary">Colaborador da Sede</span>
+                                <span className="text-xs text-text-secondary">Trabalho na sede do IADVH</span>
+                            </button>
+                            <button
+                                type="button"
+                                className="flex flex-col items-center gap-2 p-4 border-2 border-gray-200 rounded-lg hover:border-accent hover:bg-accent/5 transition-all text-center"
+                                onClick={() => setIsExternoForm(true)}
+                            >
+                                <span className="text-2xl">🌍</span>
+                                <span className="text-sm font-semibold text-text-primary">Voluntário Externo</span>
+                                <span className="text-xs text-text-secondary">Sou de filial ou outra instituição</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 1b: Sede — Setor Selector */}
+                {step >= 1 && !success && !isExternoForm && selectedSetor === "__show_selector__" && (
+                    <div className="card mb-4 animate-fade-in-up">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-sm font-semibold text-text-primary">
+                                1. Selecione seu setor
+                            </label>
+                            <button onClick={resetForm} className="text-xs text-text-secondary hover:text-primary underline">
+                                Voltar
+                            </button>
+                        </div>
+                        <select className="input-field" value="" onChange={(e) => setSelectedSetor(e.target.value)}>
+                            <option value="">Escolha seu setor...</option>
                             {setores.map((s) => (
                                 <option key={s.id} value={s.id}>{s.nome}</option>
                             ))}
                         </select>
+                    </div>
+                )}
 
-                        <div className="relative flex items-center py-2">
-                            <div className="flex-grow border-t border-gray-200"></div>
-                            <span className="flex-shrink-0 mx-4 text-text-secondary text-xs uppercase font-medium">ou</span>
-                            <div className="flex-grow border-t border-gray-200"></div>
+                {/* Step 1b (selected): Show selected setor */}
+                {step >= 1 && !success && !isExternoForm && selectedSetor && selectedSetor !== "__show_selector__" && (
+                    <div className="card mb-4 animate-fade-in-up">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <label className="block text-xs text-text-secondary">Setor</label>
+                                <span className="text-sm font-semibold text-text-primary">
+                                    {setores.find(s => s.id === selectedSetor)?.nome}
+                                </span>
+                            </div>
+                            <button onClick={resetForm} className="text-xs text-text-secondary hover:text-primary underline">
+                                Alterar
+                            </button>
                         </div>
-
-                        <button
-                            type="button"
-                            className="btn btn-outline w-full mt-2 text-sm py-2.5"
-                            onClick={() => setIsExternoForm(true)}
-                        >
-                            Sou Voluntário Externo
-                        </button>
                     </div>
                 )}
 

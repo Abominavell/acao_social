@@ -8,6 +8,7 @@ export interface Colaborador {
     id: string;
     setor_id: string;
     nome: string;
+    whatsapp?: string | null;
     is_externo: boolean;
     created_at: string;
 }
