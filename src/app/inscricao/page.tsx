@@ -318,7 +318,7 @@ export default function InscricaoPage() {
                 {step >= 1 && !success && !isExternoForm && !selectedSetor && (
                     <div className="card mb-4 animate-fade-in-up">
                         <label className="block text-sm font-semibold text-text-primary mb-3">
-                            1. Você é colaborador da Sede ou Externo (Filial)?
+                            1. Você é colaborador da Sede ou Externo a sede?
                         </label>
                         <div className="grid grid-cols-2 gap-3">
                             <button
@@ -330,7 +330,7 @@ export default function InscricaoPage() {
                                     setSelectedSetor("__show_selector__");
                                 }}
                             >
-                                <span className="text-2xl">🏢</span>
+                                <span className="text-2xl"></span>
                                 <span className="text-sm font-semibold text-text-primary">Colaborador da Sede</span>
                                 <span className="text-xs text-text-secondary">Trabalho na sede do IADVH</span>
                             </button>
@@ -339,9 +339,9 @@ export default function InscricaoPage() {
                                 className="flex flex-col items-center gap-2 p-4 border-2 border-gray-200 rounded-lg hover:border-accent hover:bg-accent/5 transition-all text-center"
                                 onClick={() => setIsExternoForm(true)}
                             >
-                                <span className="text-2xl">🌍</span>
+                                <span className="text-2xl"></span>
                                 <span className="text-sm font-semibold text-text-primary">Voluntário Externo</span>
-                                <span className="text-xs text-text-secondary">Sou de filial ou outra instituição</span>
+                                <span className="text-xs text-text-secondary">Sou colaborador mas nao atuo na sede</span>
                             </button>
                         </div>
                     </div>

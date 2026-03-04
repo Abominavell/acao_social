@@ -145,21 +145,27 @@ export default function DashboardPage() {
         previousParticipacoes: 0,
         previousSetoresAtivos: 0,
     });
-    const [periodo, setPeriodo] = useState<"mes" | "ano">("mes");
+    const [periodo, setPeriodo] = useState<"mes" | "ano" | "custom">("mes");
+    const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+    const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
     const [loading, setLoading] = useState(true);
     const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
     const fetchDashboardData = useCallback(async () => {
         const now = new Date();
         let startDate: string;
+        let endDate: string | null = null;
 
         if (periodo === "mes") {
             startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-        } else {
+        } else if (periodo === "ano") {
             startDate = new Date(now.getFullYear(), 0, 1).toISOString();
+        } else {
+            startDate = new Date(selectedYear, selectedMonth, 1).toISOString();
+            endDate = new Date(selectedYear, selectedMonth + 1, 1).toISOString();
         }
 
-        const { data: inscricoes } = await supabase
+        let queryInscricoes = supabase
             .from("inscricoes")
             .select(`
         id,
@@ -176,6 +182,9 @@ export default function DashboardPage() {
             .eq("confirmado_presenca", true)
             .gte("created_at", startDate);
 
+        if (endDate) queryInscricoes = queryInscricoes.lt("created_at", endDate);
+        const { data: inscricoes } = await queryInscricoes;
+
         const { data: setores } = await supabase
             .from("setores")
             .select("id, nome");
@@ -190,11 +199,14 @@ export default function DashboardPage() {
             .eq("ativo", true);
 
         // Fetch ALL inscriptions from external volunteers (not just confirmed)
-        const { data: inscricoesExternas } = await supabase
+        let queryExt = supabase
             .from("inscricoes")
             .select("id, colaboradores!inner(is_externo)")
             .eq("colaboradores.is_externo", true)
             .gte("created_at", startDate);
+
+        if (endDate) queryExt = queryExt.lt("created_at", endDate);
+        const { data: inscricoesExternas } = await queryExt;
 
         if (!inscricoes || !setores || !colaboradores) {
             setLoading(false);
@@ -252,9 +264,12 @@ export default function DashboardPage() {
         if (periodo === "mes") {
             prevStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
             prevEndDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-        } else {
+        } else if (periodo === "ano") {
             prevStartDate = new Date(now.getFullYear() - 1, 0, 1).toISOString();
             prevEndDate = new Date(now.getFullYear(), 0, 1).toISOString();
+        } else {
+            prevStartDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString();
+            prevEndDate = new Date(selectedYear, selectedMonth, 1).toISOString();
         }
 
         const { data: prevInscricoes } = await supabase
@@ -285,7 +300,7 @@ export default function DashboardPage() {
         });
         setLastUpdate(new Date());
         setLoading(false);
-    }, [periodo]);
+    }, [periodo, selectedMonth, selectedYear]);
 
     useEffect(() => {
         fetchDashboardData();
@@ -385,17 +400,16 @@ export default function DashboardPage() {
                     </button>
                 </div>
 
-                {/* Period Toggle */}
-                <div className="flex justify-center mb-8">
-                    <div className="bg-primary-dark/40 p-1 flex">
+                <div className="flex flex-col items-center mb-8 gap-4">
+                    <div className="bg-primary-dark/40 p-1 flex rounded">
                         <button
-                            className={`px-6 py-2 text-sm font-semibold transition-all ${periodo === "mes"
+                            className={`px-6 py-2 text-sm font-semibold transition-all rounded-l ${periodo === "mes"
                                 ? "bg-white text-primary shadow-lg"
                                 : "text-white/70 hover:text-white"
                                 }`}
                             onClick={() => setPeriodo("mes")}
                         >
-                            Setor do Mês
+                            Mês Atual
                         </button>
                         <button
                             className={`px-6 py-2 text-sm font-semibold transition-all ${periodo === "ano"
@@ -404,9 +418,47 @@ export default function DashboardPage() {
                                 }`}
                             onClick={() => setPeriodo("ano")}
                         >
-                            Setor do Ano
+                            Ano Atual
+                        </button>
+                        <button
+                            className={`px-6 py-2 text-sm font-semibold transition-all rounded-r ${periodo === "custom"
+                                ? "bg-white text-primary shadow-lg"
+                                : "text-white/70 hover:text-white"
+                                }`}
+                            onClick={() => setPeriodo("custom")}
+                        >
+                            Específico
                         </button>
                     </div>
+
+                    {periodo === "custom" && (
+                        <div className="flex items-center gap-2 animate-fade-in-up">
+                            <select
+                                className="bg-white/10 border border-white/20 text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:border-white/40 [&>option]:text-primary"
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                            >
+                                {Array.from({ length: 12 }).map((_, i) => {
+                                    const date = new Date(2000, i, 1);
+                                    return (
+                                        <option key={i} value={i}>
+                                            {date.toLocaleDateString("pt-BR", { month: "long" }).charAt(0).toUpperCase() + date.toLocaleDateString("pt-BR", { month: "long" }).slice(1)}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                            <select
+                                className="bg-white/10 border border-white/20 text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:border-white/40 [&>option]:text-primary"
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                            >
+                                {Array.from({ length: 5 }).map((_, i) => {
+                                    const year = new Date().getFullYear() - i;
+                                    return <option key={i} value={year}>{year}</option>;
+                                })}
+                            </select>
+                        </div>
+                    )}
                 </div>
 
                 {loading ? (
@@ -494,61 +546,7 @@ export default function DashboardPage() {
                             </div>
                         </div>
 
-                        {/* Period Comparison */}
-                        {(data.previousParticipacoes > 0 || data.totalParticipacoes > 0) && (
-                            <div className="bg-white/5 border border-white/10 p-4 mt-8 animate-fade-in-up">
-                                <p className="text-xs text-accent/70 font-medium uppercase tracking-wider mb-3">
-                                    Comparativo vs {periodo === "mes" ? "mês anterior" : "ano anterior"}
-                                </p>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {(() => {
-                                        const delta = data.totalParticipacoes - data.previousParticipacoes;
-                                        const pct = data.previousParticipacoes > 0
-                                            ? Math.round((delta / data.previousParticipacoes) * 100)
-                                            : data.totalParticipacoes > 0 ? 100 : 0;
-                                        const isUp = delta >= 0;
-                                        return (
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 flex items-center justify-center ${isUp ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
-                                                    {isUp ? <TrendUpIcon /> : <TrendDownIcon />}
-                                                </div>
-                                                <div>
-                                                    <p className="text-white font-bold text-sm">
-                                                        {isUp ? "+" : ""}{delta} participações
-                                                    </p>
-                                                    <p className={`text-xs font-semibold ${isUp ? "text-green-300" : "text-red-300"}`}>
-                                                        {isUp ? "+" : ""}{pct}% vs período anterior
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-                                    {(() => {
-                                        const currentSetores = data.ranking.filter((r) => r.participantes_unicos > 0).length;
-                                        const delta = currentSetores - data.previousSetoresAtivos;
-                                        const isUp = delta >= 0;
-                                        return (
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 flex items-center justify-center ${isUp ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
-                                                    {isUp ? <TrendUpIcon /> : <TrendDownIcon />}
-                                                </div>
-                                                <div>
-                                                    <p className="text-white font-bold text-sm">
-                                                        {isUp ? "+" : ""}{delta} setores ativos
-                                                    </p>
-                                                    <p className={`text-xs font-semibold ${isUp ? "text-green-300" : "text-red-300"}`}>
-                                                        {data.previousSetoresAtivos > 0
-                                                            ? `${isUp ? "+" : ""}${Math.round((delta / data.previousSetoresAtivos) * 100)}%`
-                                                            : currentSetores > 0 ? "Novo" : "—"
-                                                        } vs período anterior
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-                        )}
+
 
                         {/* Podium */}
                         {top3.length > 0 && (
@@ -657,6 +655,62 @@ export default function DashboardPage() {
                             </div>
                         </div>
                     </>
+                )}
+
+                {/* Period Comparison - MOVED HERE */}
+                {!loading && (data.previousParticipacoes > 0 || data.totalParticipacoes > 0) && (
+                    <div className="bg-white/5 border border-white/10 p-4 mt-8 animate-fade-in-up">
+                        <p className="text-xs text-accent/70 font-medium uppercase tracking-wider mb-3">
+                            Comparativo vs {periodo === "mes" ? "mês anterior" : periodo === "ano" ? "ano anterior" : "período anterior"}
+                        </p>
+                        <div className="grid grid-cols-2 gap-4">
+                            {(() => {
+                                const delta = data.totalParticipacoes - data.previousParticipacoes;
+                                const pct = data.previousParticipacoes > 0
+                                    ? Math.round((delta / data.previousParticipacoes) * 100)
+                                    : data.totalParticipacoes > 0 ? 100 : 0;
+                                const isUp = delta >= 0;
+                                return (
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-8 h-8 flex items-center justify-center ${isUp ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
+                                            {isUp ? <TrendUpIcon /> : <TrendDownIcon />}
+                                        </div>
+                                        <div>
+                                            <p className="text-white font-bold text-sm">
+                                                {isUp ? "+" : ""}{delta} participações
+                                            </p>
+                                            <p className={`text-xs font-semibold ${isUp ? "text-green-300" : "text-red-300"}`}>
+                                                {isUp ? "+" : ""}{pct}% vs período anterior
+                                            </p>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                            {(() => {
+                                const currentSetores = data.ranking.filter((r) => r.participantes_unicos > 0).length;
+                                const delta = currentSetores - data.previousSetoresAtivos;
+                                const isUp = delta >= 0;
+                                return (
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-8 h-8 flex items-center justify-center ${isUp ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
+                                            {isUp ? <TrendUpIcon /> : <TrendDownIcon />}
+                                        </div>
+                                        <div>
+                                            <p className="text-white font-bold text-sm">
+                                                {isUp ? "+" : ""}{delta} setores ativos
+                                            </p>
+                                            <p className={`text-xs font-semibold ${isUp ? "text-green-300" : "text-red-300"}`}>
+                                                {data.previousSetoresAtivos > 0
+                                                    ? `${isUp ? "+" : ""}${Math.round((delta / data.previousSetoresAtivos) * 100)}%`
+                                                    : currentSetores > 0 ? "Novo" : "—"
+                                                } vs período anterior
+                                            </p>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    </div>
                 )}
             </main>
 

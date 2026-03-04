@@ -92,6 +92,25 @@ function ChevronRightIcon() {
     );
 }
 
+function CalendarIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M8 2v4" /><path d="M16 2v4" />
+            <rect width="18" height="18" x="3" y="4" rx="2" />
+            <path d="M3 10h18" />
+        </svg>
+    );
+}
+
+function CheckCircleIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <path d="m9 12 2 2 4-4" />
+        </svg>
+    );
+}
+
 function AdminContent() {
     const { user, signOut } = useAuth();
     const router = useRouter();
@@ -131,7 +150,7 @@ function AdminContent() {
             .order("data_evento", { ascending: false });
         if (data) {
             setAcoes(data);
-            if (data.length > 0 && !selectedAcao) setSelectedAcao(data[0].id);
+            // Default is now "All Actions" (selectedAcao = ""), so we don't auto-select the first one anymore.
         }
     }
 
@@ -143,13 +162,18 @@ function AdminContent() {
         return null;
     }
 
-    async function fetchInscricoes(acaoId: string) {
+    async function fetchInscricoes(acaoId?: string) {
         setLoading(true);
-        const { data } = await supabase
+        let query = supabase
             .from("inscricoes")
             .select(`*, colaboradores (id, nome, is_externo, setor_id, setores:setor_id (nome))`)
-            .eq("acao_id", acaoId)
-            .order("created_at");
+            .order("created_at", { ascending: false }); // Sort descending by default for better global view
+
+        if (acaoId) {
+            query = query.eq("acao_id", acaoId);
+        }
+
+        const { data } = await query;
         if (data) setInscricoes(data as unknown as Inscricao[]);
         setLoading(false);
     }
@@ -170,7 +194,7 @@ function AdminContent() {
     }, []);
 
     useEffect(() => {
-        if (selectedAcao) fetchInscricoes(selectedAcao);
+        fetchInscricoes(selectedAcao);
     }, [selectedAcao]);
 
     async function handleCreateAcao(e: React.FormEvent) {
@@ -429,7 +453,7 @@ function AdminContent() {
                     <div>
                         <h1 className="text-2xl font-bold text-text-primary">Painel de Administração</h1>
                         <p className="text-text-secondary text-sm">
-                            Gerencie ações sociais e confirme presenças dos voluntários
+                            Gerencie ações sociais e presenças
                         </p>
                     </div>
                     <button
@@ -581,9 +605,17 @@ function AdminContent() {
                 {/* Action Selector + Stats + Action Buttons */}
                 <div className="grid md:grid-cols-4 gap-4 mb-6">
                     <div className="md:col-span-2 card">
+                        {/* Action Selector */}
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex flex-col gap-2">
-                                <label className="text-sm font-medium text-text-secondary">Calendário de Ações</label>
+                                <label className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                                    Calendário de Ações
+                                    {selectedAcao && (
+                                        <button onClick={() => setSelectedAcao("")} className="text-[10px] text-primary hover:underline font-normal bg-primary/10 px-2 py-0.5 rounded-full">
+                                            Limpar Seleção ✖
+                                        </button>
+                                    )}
+                                </label>
                                 <div className="flex bg-gray-100 p-0.5 rounded-md">
                                     <button onClick={() => setFilterStatus("todas")} className={`px-2 py-0.5 text-[10px] font-medium rounded ${filterStatus === "todas" ? "bg-white shadow text-primary" : "text-gray-500 hover:text-gray-700"}`}>Todas</button>
                                     <button onClick={() => setFilterStatus("realizadas")} className={`px-2 py-0.5 text-[10px] font-medium rounded ${filterStatus === "realizadas" ? "bg-white shadow text-primary" : "text-gray-500 hover:text-gray-700"}`}>Realizadas</button>
@@ -615,7 +647,7 @@ function AdminContent() {
                                     <button
                                         key={i}
                                         onClick={() => {
-                                            if (hasAction) setSelectedAcao(dayActions[0].id);
+                                            if (hasAction) setSelectedAcao(isSelected ? "" : dayActions[0].id);
                                         }}
                                         disabled={!hasAction}
                                         className={`p-2 text-sm rounded transition-all flex flex-col items-center justify-center 
@@ -630,42 +662,102 @@ function AdminContent() {
                                 );
                             })}
                         </div>
-                        {/* Action buttons for selected action */}
-                        {selectedAcaoData && (
-                            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-                                <button
-                                    onClick={() => { setEditingAcao(selectedAcaoData); setShowCreateForm(false); }}
-                                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                                >
-                                    <EditIcon /> Editar
-                                </button>
-                                <span className="text-gray-300">|</span>
-                                <button
-                                    onClick={() => setDeleteConfirm(selectedAcaoData.id)}
-                                    className="text-xs text-error hover:underline flex items-center gap-1"
-                                >
-                                    <TrashIcon /> Excluir
-                                </button>
-                                <span className="text-gray-300">|</span>
-                                <button
-                                    onClick={() => toggleAtivo(selectedAcaoData)}
-                                    className={`text-xs hover:underline flex items-center gap-1 ${selectedAcaoData.ativo ? "text-warning" : "text-success"}`}
-                                >
-                                    {selectedAcaoData.ativo ? "Desativar" : "Ativar"}
-                                </button>
+                    </div>
+
+                    {/* Dynamic Side Panel */}
+                    <div className="md:col-span-2 flex flex-col gap-4">
+                        {selectedAcaoData ? (
+                            <div className="card h-full flex flex-col animate-fade-in-up border-l-4 border-l-primary">
+                                <div className="mb-4">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1 block">Ação Selecionada</span>
+                                    <h3 className="text-xl font-black text-text-primary leading-tight">{selectedAcaoData.titulo}</h3>
+                                    <p className="text-xs text-text-secondary mt-1 flex items-center gap-1.5"><CalendarIcon /> {formatDate(selectedAcaoData.data_evento)}</p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 mb-4">
+                                    <div className="bg-gray-50 p-3 rounded text-center">
+                                        <p className="text-2xl font-black text-primary">{totalInscritos}</p>
+                                        <p className="text-[10px] text-text-secondary font-medium">Inscritos / {selectedAcaoData.vagas_limite} Limite</p>
+                                    </div>
+                                    <div className="bg-green-50 p-3 rounded text-center">
+                                        <p className="text-2xl font-black text-success">{totalConfirmados}</p>
+                                        <p className="text-[10px] text-green-700 font-medium">Presenças Confirmadas</p>
+                                    </div>
+                                </div>
+
+                                {selectedAcaoData.vagas_por_setor && Object.keys(selectedAcaoData.vagas_por_setor).length > 0 && (
+                                    <div className="mb-4 flex-1">
+                                        <p className="text-xs font-semibold text-text-secondary mb-2">Vagas por Setor</p>
+                                        <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1">
+                                            {Object.entries(selectedAcaoData.vagas_por_setor).map(([setId, limit]) => {
+                                                const sNome = setores.find(s => s.id === setId)?.nome || "Setor Removido";
+                                                const sInscs = inscricoes.filter(i => {
+                                                    const colab = i.colaboradores as unknown as { nome: string; is_externo: boolean; setor_id: string; setores?: { nome: string } };
+                                                    if (!colab) return false;
+                                                    // For internals, check if their setor_id matches this section's ID
+                                                    if (!colab.is_externo && colab.setor_id === setId) return true;
+                                                    // For externals, the parsed 'unit' might match the sector name
+                                                    if (colab.is_externo) {
+                                                        const extInfo = parseExternoName(colab.nome);
+                                                        return extInfo.unit === sNome;
+                                                    }
+                                                    return false;
+                                                }).length;
+                                                return (
+                                                    <div key={setId} className="bg-white border border-gray-100 rounded p-2 flex justify-between items-center shadow-sm">
+                                                        <span className="text-[10px] text-text-secondary font-medium truncate pr-2 w-3/4" title={sNome}>{sNome}</span>
+                                                        <span className={`text-[10px] font-bold ${sInscs >= limit ? "text-error" : "text-primary"}`}>
+                                                            {sInscs}/{limit}
+                                                        </span>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center gap-2 pt-3 mt-auto border-t border-gray-100">
+                                    <button
+                                        onClick={() => { setEditingAcao(selectedAcaoData); setShowCreateForm(false); }}
+                                        className="btn btn-outline min-h-0 py-1.5 px-3 text-xs flex-1 flex items-center justify-center gap-1"
+                                    >
+                                        <EditIcon /> Editar
+                                    </button>
+                                    <button
+                                        onClick={() => setDeleteConfirm(selectedAcaoData.id)}
+                                        className="btn min-h-0 py-1.5 px-3 text-xs bg-red-50 text-red-600 hover:bg-red-100 border-error flex items-center justify-center gap-1"
+                                    >
+                                        <TrashIcon />
+                                    </button>
+                                    <button
+                                        onClick={() => toggleAtivo(selectedAcaoData)}
+                                        className={`btn min-h-0 py-1.5 px-3 text-xs flex-1 border flex items-center justify-center gap-1 ${selectedAcaoData.ativo ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200" : "bg-green-50 text-green-700 hover:bg-green-100 border-green-200"}`}
+                                    >
+                                        {selectedAcaoData.ativo ? "Desativar" : "Ativar"}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="card h-full flex flex-col justify-center animate-fade-in-up">
+                                <div className="text-center mb-6">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary mb-1 block">Visão Geral</span>
+                                    <h3 className="text-lg font-bold text-text-primary">Todas as Ações</h3>
+                                    <p className="text-xs text-text-secondary mt-1">Selecione uma ação no calendário para ver seus detalhes.</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl text-center">
+                                        <div className="w-10 h-10 mx-auto bg-primary/10 text-primary rounded-full flex items-center justify-center mb-2"><ClipboardListIcon /></div>
+                                        <p className="text-3xl font-black text-primary">{totalInscritos}</p>
+                                        <p className="text-xs text-text-secondary font-medium">Inscritos Globais</p>
+                                    </div>
+                                    <div className="bg-green-50 border border-green-100 p-4 rounded-xl text-center">
+                                        <div className="w-10 h-10 mx-auto bg-success/10 text-success rounded-full flex items-center justify-center mb-2"><CheckCircleIcon /></div>
+                                        <p className="text-3xl font-black text-success">{totalConfirmados}</p>
+                                        <p className="text-xs text-text-secondary font-medium">Presenças Globais</p>
+                                    </div>
+                                </div>
                             </div>
                         )}
-                    </div>
-                    <div className="card text-center">
-                        <p className="text-3xl font-black text-primary">{totalInscritos}</p>
-                        <p className="text-xs text-text-secondary font-medium">Inscritos</p>
-                        {selectedAcaoData && (
-                            <p className="text-[10px] text-text-secondary mt-1">de {selectedAcaoData.vagas_limite} vagas</p>
-                        )}
-                    </div>
-                    <div className="card text-center">
-                        <p className="text-3xl font-black text-success">{totalConfirmados}</p>
-                        <p className="text-xs text-text-secondary font-medium">Presenças</p>
                     </div>
                 </div>
 
@@ -673,7 +765,9 @@ function AdminContent() {
                 <div className="card overflow-hidden p-0">
                     <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-4 flex-wrap">
-                            <h2 className="font-bold text-text-primary">Lista de Inscritos</h2>
+                            <h2 className="font-bold text-text-primary">
+                                {selectedAcaoData ? `Inscritos: ${selectedAcaoData.titulo}` : "Lista de Inscritos - Todas as Ações"}
+                            </h2>
                             <div className="flex bg-gray-100 p-1 rounded-md">
                                 <button onClick={() => setFilterTipo("todos")} className={`px-3 py-1 text-xs font-medium rounded ${filterTipo === "todos" ? "bg-white shadow text-primary" : "text-gray-500 hover:text-gray-700"}`}>Todos</button>
                                 <button onClick={() => setFilterTipo("sede")} className={`px-3 py-1 text-xs font-medium rounded ${filterTipo === "sede" ? "bg-white shadow text-primary" : "text-gray-500 hover:text-gray-700"}`}>Sede</button>
