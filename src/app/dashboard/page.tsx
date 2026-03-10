@@ -555,13 +555,13 @@ export default function DashboardPage() {
                                     <MedalIcon />
                                     {(() => {
                                         const now = new Date();
-                                        if (periodo === "ano") return `Pódio de ${now.getFullYear()}`;
+                                        if (periodo === "ano") return `Pódio do Ano`;
 
                                         const m = periodo === "mes" ? now.getMonth() : selectedMonth;
                                         const y = periodo === "mes" ? now.getFullYear() : selectedYear;
                                         const date = new Date(y, m, 1);
                                         const mName = date.toLocaleDateString("pt-BR", { month: "long" });
-                                        return `Pódio de ${mName.charAt(0).toUpperCase() + mName.slice(1)} de ${y}`;
+                                        return `Pódio de ${mName.charAt(0).toUpperCase() + mName.slice(1)}`;
                                     })()}
                                 </h2>
                                 <div className={`flex items-end justify-center gap-3 md:gap-6 max-w-2xl mx-auto transition-all duration-700 ${podiumVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
