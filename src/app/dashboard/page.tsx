@@ -553,7 +553,16 @@ export default function DashboardPage() {
                             <div className="mt-8" ref={podiumRef}>
                                 <h2 className="text-center text-white font-bold text-lg mb-6 flex items-center justify-center gap-2">
                                     <MedalIcon />
-                                    {periodo === "mes" ? "Pódio do Mês" : "Pódio do Ano"}
+                                    {(() => {
+                                        const now = new Date();
+                                        if (periodo === "ano") return `Pódio de ${now.getFullYear()}`;
+
+                                        const m = periodo === "mes" ? now.getMonth() : selectedMonth;
+                                        const y = periodo === "mes" ? now.getFullYear() : selectedYear;
+                                        const date = new Date(y, m, 1);
+                                        const mName = date.toLocaleDateString("pt-BR", { month: "long" });
+                                        return `Pódio de ${mName.charAt(0).toUpperCase() + mName.slice(1)} de ${y}`;
+                                    })()}
                                 </h2>
                                 <div className={`flex items-end justify-center gap-3 md:gap-6 max-w-2xl mx-auto transition-all duration-700 ${podiumVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
                                     {podiumOrder.map((idx) => {

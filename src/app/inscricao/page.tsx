@@ -340,7 +340,7 @@ export default function InscricaoPage() {
                                 onClick={() => setIsExternoForm(true)}
                             >
                                 <span className="text-2xl"></span>
-                                <span className="text-sm font-semibold text-text-primary">Voluntário Externo</span>
+                                <span className="text-sm font-semibold text-text-primary">Colaborador Filial</span>
                                 <span className="text-xs text-text-secondary">Sou colaborador mas nao atuo na sede</span>
                             </button>
                         </div>
