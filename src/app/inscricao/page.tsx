@@ -112,6 +112,9 @@ export default function InscricaoPage() {
     const [isExternoForm, setIsExternoForm] = useState(false);
     const [externoNome, setExternoNome] = useState("");
     const [externoUnidade, setExternoUnidade] = useState("");
+    const [externoColabs, setExternoColabs] = useState<Colaborador[]>([]);
+    const [showExternoList, setShowExternoList] = useState(false);
+    const [externoLoading, setExternoLoading] = useState(false);
 
 
 
@@ -160,10 +163,19 @@ export default function InscricaoPage() {
         }
     }
 
+    async function fetchExternoColabs() {
+        const { data } = await supabase.from("colaboradores").select("*").eq("is_externo", true).order("nome");
+        if (data) setExternoColabs(data);
+    }
+
     useEffect(() => {
         fetchSetores();
         fetchAcoes();
     }, []);
+
+    useEffect(() => {
+        if (isExternoForm) fetchExternoColabs();
+    }, [isExternoForm]);
 
     useEffect(() => {
         if (selectedSetor && selectedSetor !== "__show_selector__") {
@@ -173,54 +185,53 @@ export default function InscricaoPage() {
         }
     }, [selectedSetor]);
 
-    async function handleInscrever() {
-        if (!selectedAcao) return;
-
-        let finalColabId = selectedColaborador;
-
-        if (isExternoForm) {
-            if (!externoNome || !externoUnidade) {
-                setError("Preencha seu nome e instituição/unidade.");
-                return;
-            }
-            setLoading(true);
-            setError(null);
-
-            // Find or create 'EXTERNOS' sector
-            let extSetorId = setores.find(s => s.nome.toUpperCase() === "EXTERNOS")?.id;
-            if (!extSetorId) {
-                const { data: newS } = await supabase.from("setores").insert({ nome: "EXTERNOS" }).select().single();
-                extSetorId = newS?.id || setores[0]?.id;
-            }
-
-            const fullName = `${externoNome.trim()} (${externoUnidade.trim()})`;
-
-            // Re-use or create colab
-            let { data: extColab } = await supabase.from("colaboradores")
-                .select("id").eq("nome", fullName).eq("is_externo", true).single();
-
-            if (!extColab) {
-                const { data: freshColab } = await supabase.from("colaboradores")
-                    .insert({ nome: fullName, is_externo: true, setor_id: extSetorId })
-                    .select().single();
-                extColab = freshColab;
-            }
-
-            if (!extColab) {
-                setError("Erro ao registrar voluntário externo.");
-                setLoading(false);
-                return;
-            }
-            finalColabId = extColab.id;
-        } else {
-            if (!finalColabId) return;
-            setLoading(true);
-            setError(null);
+    async function handleRegisterExterno() {
+        if (!externoNome || !externoUnidade) {
+            setError("Preencha seu nome e instituição/unidade.");
+            return;
         }
+        setExternoLoading(true);
+        setError(null);
+
+        const fullName = `${externoNome.trim()} (${externoUnidade.trim()})`;
+
+        // Re-use or create colab
+        let { data: extColab } = await supabase.from("colaboradores")
+            .select("id").eq("nome", fullName).eq("is_externo", true).single();
+
+        if (!extColab) {
+            const { data: freshColab } = await supabase.from("colaboradores")
+                .insert({ nome: fullName, is_externo: true })
+                .select().single();
+            extColab = freshColab;
+        }
+
+        setExternoLoading(false);
+
+        if (!extColab) {
+            setError("Erro ao registrar. Tente novamente.");
+            return;
+        }
+
+        setSelectedColaborador(extColab.id);
+        setStep(3);
+        await fetchExternoColabs();
+    }
+
+    function handleSelectExternoReturning(colabId: string) {
+        setSelectedColaborador(colabId);
+        setStep(3);
+    }
+
+    async function handleInscrever() {
+        if (!selectedAcao || !selectedColaborador) return;
+
+        setLoading(true);
+        setError(null);
 
         const { error: insertError } = await supabase.from("inscricoes").insert({
             acao_id: selectedAcao,
-            colaborador_id: finalColabId,
+            colaborador_id: selectedColaborador,
             confirmado_presenca: false,
         });
 
@@ -248,6 +259,8 @@ export default function InscricaoPage() {
         setIsExternoForm(false);
         setExternoNome("");
         setExternoUnidade("");
+        setShowExternoList(false);
+        setExternoLoading(false);
     }
 
     // Derive unique project names for filter tabs
@@ -385,11 +398,11 @@ export default function InscricaoPage() {
                 )}
 
                 {/* Externo Form */}
-                {isExternoForm && !success && step < 4 && (
+                {isExternoForm && !success && step < 3 && (
                     <div className="card mb-4 animate-fade-in-up border-l-4 border-l-accent">
                         <div className="flex items-center justify-between mb-3">
                             <label className="block text-sm font-semibold text-text-primary">
-                                Cadastro de Externo
+                                1. Cadastro de Colaborador Filial
                             </label>
                             <button onClick={resetForm} className="text-xs text-text-secondary hover:text-primary underline">
                                 Voltar
@@ -405,20 +418,69 @@ export default function InscricaoPage() {
                             />
                             <input
                                 type="text"
-                                placeholder="Empresa / Instituição / Unidade"
+                                placeholder="Filial / Unidade"
                                 className="input-field"
                                 value={externoUnidade}
                                 onChange={e => setExternoUnidade(e.target.value)}
                             />
-                            <div className="text-xs text-text-secondary bg-gray-50 p-2 rounded">
-                                Selecione uma ação social abaixo para prosseguir.
-                            </div>
+                            {error && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-xs rounded">{error}</div>
+                            )}
+                            <button
+                                className="btn btn-primary w-full"
+                                onClick={handleRegisterExterno}
+                                disabled={externoLoading || !externoNome || !externoUnidade}
+                            >
+                                {externoLoading ? "Registrando..." : "Continuar"}
+                            </button>
+
+                            {/* Returning volunteer drawer */}
+                            {externoColabs.length > 0 && (
+                                <div className="border-t border-gray-100 pt-3 mt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowExternoList(!showExternoList)}
+                                        className="text-xs text-primary font-medium hover:underline flex items-center gap-1 w-full justify-center"
+                                    >
+                                        {showExternoList ? "▲ Fechar lista" : "▼ Já me cadastrei antes"}
+                                    </button>
+                                    {showExternoList && (
+                                        <select
+                                            className="input-field mt-2"
+                                            value=""
+                                            onChange={e => handleSelectExternoReturning(e.target.value)}
+                                        >
+                                            <option value="">Selecione seu nome...</option>
+                                            {externoColabs.map(c => (
+                                                <option key={c.id} value={c.id}>{c.nome}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
 
-                {/* Step 2: Colaborador */}
-                {step >= 2 && !success && (
+                {/* Externo: Show selected collaborator summary when step >= 3 */}
+                {isExternoForm && !success && step >= 3 && selectedColaborador && (
+                    <div className="card mb-4 animate-fade-in-up border-l-4 border-l-accent">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <label className="block text-xs text-text-secondary">Colaborador Filial</label>
+                                <span className="text-sm font-semibold text-text-primary">
+                                    {externoColabs.find(c => c.id === selectedColaborador)?.nome || `${externoNome} (${externoUnidade})`}
+                                </span>
+                            </div>
+                            <button onClick={resetForm} className="text-xs text-text-secondary hover:text-primary underline">
+                                Alterar
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 2: Colaborador (only for sede flow) */}
+                {step >= 2 && !success && !isExternoForm && (
                     <div className="card mb-4 animate-fade-in-up">
                         <label className="block text-sm font-semibold text-text-primary mb-2">
                             2. Identifique-se
@@ -426,7 +488,7 @@ export default function InscricaoPage() {
                         <select className="input-field" value={selectedColaborador} onChange={(e) => { setSelectedColaborador(e.target.value); if (e.target.value) setStep(3); }}>
                             <option value="">Selecione seu nome...</option>
                             {colaboradores.map((c) => (
-                                <option key={c.id} value={c.id}>{c.nome} {c.is_externo ? "(Externo)" : ""}</option>
+                                <option key={c.id} value={c.id}>{c.nome}</option>
                             ))}
                         </select>
                     </div>
@@ -436,7 +498,7 @@ export default function InscricaoPage() {
                 {step >= 3 && !success && (
                     <div className="animate-fade-in-up">
                         <h3 className="text-sm font-semibold text-text-primary mb-3">
-                            3. Escolha uma Ação Social
+                            {isExternoForm ? "2" : "3"}. Escolha uma Ação Social
                         </h3>
 
                         {/* Filter Tabs */}
