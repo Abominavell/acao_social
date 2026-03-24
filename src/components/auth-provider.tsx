@@ -1,21 +1,29 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { supabase } from "@/lib/supabase";
-import type { User } from "@supabase/supabase-js";
+import {
+    clearAuthStorage,
+    getStoredAccessToken,
+    getStoredUsername,
+    loginWithPassword,
+} from "@/lib/api";
+
+export interface AuthUser {
+    username: string;
+}
 
 interface AuthContextType {
-    user: User | null;
+    user: AuthUser | null;
     loading: boolean;
-    signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-    signOut: () => Promise<void>;
+    signIn: (username: string, password: string) => Promise<{ error: string | null }>;
+    signOut: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
     user: null,
     loading: true,
     signIn: async () => ({ error: null }),
-    signOut: async () => { },
+    signOut: () => { },
 });
 
 export function useAuth() {
@@ -23,30 +31,31 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
+    const [user, setUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null);
-            setLoading(false);
-        });
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-        });
-
-        return () => subscription.unsubscribe();
+        const token = getStoredAccessToken();
+        const username = getStoredUsername();
+        if (token && username) {
+            setUser({ username });
+        }
+        setLoading(false);
     }, []);
 
-    async function signIn(email: string, password: string) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) return { error: error.message };
-        return { error: null };
+    async function signIn(username: string, password: string) {
+        try {
+            await loginWithPassword(username, password);
+            setUser({ username: username.trim() });
+            return { error: null };
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "Falha no login.";
+            return { error: msg };
+        }
     }
 
-    async function signOut() {
-        await supabase.auth.signOut();
+    function signOut() {
+        clearAuthStorage();
         setUser(null);
     }
 

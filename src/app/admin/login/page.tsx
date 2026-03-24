@@ -37,7 +37,7 @@ function EyeOffIcon() {
 function LoginForm() {
     const { signIn } = useAuth();
     const router = useRouter();
-    const [email, setEmail] = useState("");
+    const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -45,17 +45,18 @@ function LoginForm() {
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!email || !password) return;
+        if (!username || !password) return;
 
         setLoading(true);
         setError(null);
 
-        const { error: signInError } = await signIn(email, password);
+        const { error: signInError } = await signIn(username, password);
 
         if (signInError) {
-            setError("E-mail ou senha incorretos.");
+            setError("Usuário ou senha incorretos.");
             setLoading(false);
         } else {
+            setLoading(false);
             router.push("/admin");
         }
     }
@@ -92,18 +93,18 @@ function LoginForm() {
                     )}
 
                     <div className="mb-4">
-                        <label htmlFor="email" className="block text-sm font-semibold text-text-primary mb-1.5">
-                            E-mail
+                        <label htmlFor="username" className="block text-sm font-semibold text-text-primary mb-1.5">
+                            Usuário (Django)
                         </label>
                         <input
-                            id="email"
-                            type="email"
+                            id="username"
+                            type="text"
                             className="input-field"
-                            placeholder="admin@iadvh.org"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="mesmo usuário do createsuperuser"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
                             required
-                            autoComplete="email"
+                            autoComplete="username"
                             autoFocus
                         />
                     </div>
@@ -137,7 +138,7 @@ function LoginForm() {
                     <button
                         type="submit"
                         className="btn btn-primary btn-lg w-full"
-                        disabled={loading || !email || !password}
+                        disabled={loading || !username || !password}
                     >
                         {loading ? (
                             <span className="flex items-center gap-2">

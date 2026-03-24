@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { supabase } from "@/lib/supabase";
-import type { RankingSetor } from "@/lib/types";
+import { apiJson } from "@/lib/api";
+import type { AcaoSocial, Colaborador, Inscricao, RankingSetor, Setor } from "@/lib/types";
 
 /* ── SVG Icon Components ── */
 
@@ -105,10 +105,19 @@ function TrendDownIcon() {
 
 interface DashboardData {
     ranking: RankingSetor[];
+    rankingIndividual: {
+        colaborador_id: string;
+        colaborador_nome: string;
+        setor_nome: string;
+        participacoes_confirmadas: number;
+    }[];
     totalParticipacoes: number;
     totalExternos: number;
     totalInscricoesExternas: number;
     totalAcoes: number;
+    acoesDisponiveisSede: number;
+    acoesDisponiveisFilial: number;
+    mediaEngajamentoSetores: number;
     previousParticipacoes: number;
     previousSetoresAtivos: number;
 }
@@ -135,13 +144,48 @@ const statsConfig = [
     { label: "Voluntários Externos", icon: GlobeIcon },
 ];
 
+function distributeVagasProporcional(
+    vagasLimite: number,
+    setorMemberCount: Map<string, number>,
+): Record<string, number> {
+    const entries = Array.from(setorMemberCount.entries()).filter(([, count]) => count > 0);
+    const totalInternos = entries.reduce((acc, [, count]) => acc + count, 0);
+    if (vagasLimite <= 0 || totalInternos <= 0 || entries.length === 0) return {};
+
+    const base: Record<string, number> = {};
+    const restos: { setorId: string; resto: number }[] = [];
+    let somaBase = 0;
+
+    entries.forEach(([setorId, count]) => {
+        const quota = (vagasLimite * count) / totalInternos;
+        const floorVal = Math.floor(quota);
+        base[setorId] = floorVal;
+        somaBase += floorVal;
+        restos.push({ setorId, resto: quota - floorVal });
+    });
+
+    let sobrando = vagasLimite - somaBase;
+    restos.sort((a, b) => b.resto - a.resto);
+
+    for (let i = 0; i < restos.length && sobrando > 0; i += 1) {
+        base[restos[i].setorId] += 1;
+        sobrando -= 1;
+    }
+
+    return base;
+}
+
 export default function DashboardPage() {
     const [data, setData] = useState<DashboardData>({
         ranking: [],
+        rankingIndividual: [],
         totalParticipacoes: 0,
         totalExternos: 0,
         totalInscricoesExternas: 0,
         totalAcoes: 0,
+        acoesDisponiveisSede: 0,
+        acoesDisponiveisFilial: 0,
+        mediaEngajamentoSetores: 0,
         previousParticipacoes: 0,
         previousSetoresAtivos: 0,
     });
@@ -165,60 +209,79 @@ export default function DashboardPage() {
             endDate = new Date(selectedYear, selectedMonth + 1, 1).toISOString();
         }
 
-        let queryInscricoes = supabase
-            .from("inscricoes")
-            .select(`
-        id,
-        confirmado_presenca,
-        created_at,
-        colaboradores (
-          id,
-          nome,
-          is_externo,
-          setor_id,
-          setores:setor_id (id, nome)
-        )
-      `)
-            .eq("confirmado_presenca", true)
-            .gte("created_at", startDate);
+        const qInsc = new URLSearchParams();
+        qInsc.set("confirmado_presenca", "true");
+        qInsc.set("created_at__gte", startDate);
+        qInsc.set("ordering", "-created_at");
+        if (endDate) qInsc.set("created_at__lt", endDate);
+        let inscricoes: Inscricao[] = [];
+        try {
+            inscricoes = await apiJson<Inscricao[]>(`inscricoes/?${qInsc.toString()}`, { auth: false });
+        } catch {
+            inscricoes = [];
+        }
 
-        if (endDate) queryInscricoes = queryInscricoes.lt("created_at", endDate);
-        const { data: inscricoes } = await queryInscricoes;
+        let setores: Pick<Setor, "id" | "nome">[] = [];
+        try {
+            setores = await apiJson<Setor[]>("setores/?ordering=nome", { auth: false });
+        } catch {
+            setores = [];
+        }
 
-        const { data: setores } = await supabase
-            .from("setores")
-            .select("id, nome");
+        let colaboradores: Pick<Colaborador, "id" | "setor_id" | "is_externo">[] = [];
+        try {
+            colaboradores = await apiJson<Colaborador[]>("colaboradores/?ordering=nome", { auth: false });
+        } catch {
+            colaboradores = [];
+        }
 
-        const { data: colaboradores } = await supabase
-            .from("colaboradores")
-            .select("id, setor_id, is_externo");
+        let acoes: Pick<AcaoSocial, "id" | "vagas_limite" | "vagas_por_setor" | "data_evento" | "ativo">[] = [];
+        try {
+            const qAcoes = new URLSearchParams({ ordering: "-data_evento" });
+            qAcoes.set("data_evento__gte", startDate);
+            if (endDate) qAcoes.set("data_evento__lte", endDate);
+            acoes = await apiJson<AcaoSocial[]>(`acoes_sociais/?${qAcoes.toString()}`, { auth: false });
+        } catch {
+            acoes = [];
+        }
 
-        const { data: acoes } = await supabase
-            .from("acoes_sociais")
-            .select("id")
-            .eq("ativo", true);
+        const activeActionIds = acoes.map((a) => a.id);
+        let inscricoesAcoes: Inscricao[] = [];
+        if (activeActionIds.length > 0) {
+            const qAc = new URLSearchParams();
+            qAc.set("acao_id__in", activeActionIds.join(","));
+            try {
+                inscricoesAcoes = await apiJson<Inscricao[]>(
+                    `inscricoes/?${qAc.toString()}`,
+                    { auth: false },
+                );
+            } catch {
+                inscricoesAcoes = [];
+            }
+        }
 
-        // Fetch ALL inscriptions from external volunteers (not just confirmed)
-        let queryExt = supabase
-            .from("inscricoes")
-            .select("id, colaboradores!inner(is_externo)")
-            .eq("colaboradores.is_externo", true)
-            .gte("created_at", startDate);
-
-        if (endDate) queryExt = queryExt.lt("created_at", endDate);
-        const { data: inscricoesExternas } = await queryExt;
+        const qExt = new URLSearchParams();
+        qExt.set("colaborador__is_externo", "true");
+        qExt.set("created_at__gte", startDate);
+        if (endDate) qExt.set("created_at__lt", endDate);
+        let inscricoesExternas: { id: string }[] = [];
+        try {
+            inscricoesExternas = await apiJson<{ id: string }[]>(`inscricoes/?${qExt.toString()}`, { auth: false });
+        } catch {
+            inscricoesExternas = [];
+        }
 
         if (!inscricoes || !setores || !colaboradores) {
             setLoading(false);
             return;
         }
 
-        const setorMap = new Map<string, Set<string>>();
+        const participacoesConfirmadasPorSetor = new Map<string, number>();
         const memberCount = new Map<string, number>();
         let externCount = 0;
 
         colaboradores.forEach((c) => {
-            if (!c.is_externo) {
+            if (!c.is_externo && c.setor_id) {
                 memberCount.set(c.setor_id, (memberCount.get(c.setor_id) || 0) + 1);
             }
         });
@@ -238,25 +301,121 @@ export default function DashboardPage() {
             }
 
             const setorId = colab.setor_id;
-            if (!setorMap.has(setorId)) {
-                setorMap.set(setorId, new Set());
-            }
-            setorMap.get(setorId)!.add(colab.id);
+            participacoesConfirmadasPorSetor.set(
+                setorId,
+                (participacoesConfirmadasPorSetor.get(setorId) || 0) + 1,
+            );
+        });
+
+        const metaPorSetor = new Map<string, number>();
+        acoes.forEach((acao) => {
+            const vagasPorSetorAcao = (acao.vagas_por_setor || {}) as Record<string, number>;
+            const hasSetorLimit = Object.keys(vagasPorSetorAcao).length > 0;
+            const distribuicao = hasSetorLimit
+                ? vagasPorSetorAcao
+                : distributeVagasProporcional(acao.vagas_limite, memberCount);
+
+            Object.entries(distribuicao).forEach(([setorId, meta]) => {
+                const metaValida = Number.isFinite(meta) ? Math.max(0, Math.round(meta)) : 0;
+                if (!metaValida) return;
+                metaPorSetor.set(setorId, (metaPorSetor.get(setorId) || 0) + metaValida);
+            });
         });
 
         const ranking: RankingSetor[] = setores
             .map((s) => {
-                const uniqueParticipants = setorMap.get(s.id)?.size || 0;
                 const totalMembers = memberCount.get(s.id) || 1;
+                const metaSetor = metaPorSetor.get(s.id) || 0;
+                const participacoesSetor = participacoesConfirmadasPorSetor.get(s.id) || 0;
+                const taxaMetaAtingida = metaSetor > 0
+                    ? Math.min(100, Math.round((participacoesSetor / metaSetor) * 100))
+                    : 0;
                 return {
                     setor_id: s.id,
                     setor_nome: s.nome,
-                    participantes_unicos: uniqueParticipants,
+                    participantes_unicos: participacoesSetor,
                     total_membros: totalMembers,
-                    taxa_engajamento: Math.round((uniqueParticipants / totalMembers) * 100),
+                    meta_setor: metaSetor,
+                    taxa_engajamento: taxaMetaAtingida,
                 };
             })
-            .sort((a, b) => b.participantes_unicos - a.participantes_unicos || b.taxa_engajamento - a.taxa_engajamento);
+            .sort((a, b) => b.taxa_engajamento - a.taxa_engajamento || b.participantes_unicos - a.participantes_unicos || b.total_membros - a.total_membros);
+
+        const rankingIndividualMap = new Map<string, {
+            colaborador_id: string;
+            colaborador_nome: string;
+            setor_nome: string;
+            participacoes_confirmadas: number;
+        }>();
+
+        inscricoes.forEach((insc) => {
+            const colab = insc.colaboradores as unknown as {
+                id: string;
+                nome: string;
+                setores?: { nome: string };
+            };
+            if (!colab?.id) return;
+            const prev = rankingIndividualMap.get(colab.id);
+            if (prev) {
+                prev.participacoes_confirmadas += 1;
+            } else {
+                rankingIndividualMap.set(colab.id, {
+                    colaborador_id: colab.id,
+                    colaborador_nome: colab.nome || "Sem nome",
+                    setor_nome: colab.setores?.nome || "—",
+                    participacoes_confirmadas: 1,
+                });
+            }
+        });
+
+        const rankingIndividual = Array.from(rankingIndividualMap.values())
+            .sort((a, b) => b.participacoes_confirmadas - a.participacoes_confirmadas)
+            .slice(0, 10);
+
+        const inscricoesPorAcao = new Map<string, {
+            total: number;
+            internosPorSetor: Record<string, number>;
+            externos: number;
+        }>();
+        inscricoesAcoes.forEach((insc) => {
+            const colab = insc.colaboradores as unknown as { is_externo: boolean; setor_id?: string | null };
+            const current = inscricoesPorAcao.get(insc.acao_id) || { total: 0, internosPorSetor: {}, externos: 0 };
+            current.total += 1;
+            if (colab?.is_externo) {
+                current.externos += 1;
+            } else if (colab?.setor_id) {
+                current.internosPorSetor[colab.setor_id] = (current.internosPorSetor[colab.setor_id] || 0) + 1;
+            }
+            inscricoesPorAcao.set(insc.acao_id, current);
+        });
+
+        let acoesDisponiveisFilial = 0;
+        let acoesDisponiveisSede = 0;
+        (acoes || []).forEach((acao) => {
+            const usage = inscricoesPorAcao.get(acao.id) || { total: 0, internosPorSetor: {}, externos: 0 };
+            if (usage.total < acao.vagas_limite) {
+                acoesDisponiveisFilial += 1;
+            }
+
+            const vagasPorSetor = (acao.vagas_por_setor || {}) as Record<string, number>;
+            const hasSetorLimit = Object.keys(vagasPorSetor).length > 0;
+            if (hasSetorLimit) {
+                const hasAnySectorSlot = Object.entries(vagasPorSetor).some(([setorId, limite]) => {
+                    const used = usage.internosPorSetor[setorId] || 0;
+                    return used < limite;
+                });
+                if (hasAnySectorSlot) {
+                    acoesDisponiveisSede += 1;
+                }
+            } else if (usage.total < acao.vagas_limite) {
+                // Sem limite por setor, também disponível para sede
+                acoesDisponiveisSede += 1;
+            }
+        });
+
+        const mediaEngajamentoSetores = ranking.length > 0
+            ? Math.round(ranking.reduce((sum, item) => sum + item.taxa_engajamento, 0) / ranking.length)
+            : 0;
 
         // Fetch previous period for comparison
         let prevStartDate: string;
@@ -272,12 +431,19 @@ export default function DashboardPage() {
             prevEndDate = new Date(selectedYear, selectedMonth, 1).toISOString();
         }
 
-        const { data: prevInscricoes } = await supabase
-            .from("inscricoes")
-            .select("id, colaboradores(setor_id, is_externo)")
-            .eq("confirmado_presenca", true)
-            .gte("created_at", prevStartDate)
-            .lt("created_at", prevEndDate);
+        const qPrev = new URLSearchParams();
+        qPrev.set("confirmado_presenca", "true");
+        qPrev.set("created_at__gte", prevStartDate);
+        qPrev.set("created_at__lt", prevEndDate);
+        let prevInscricoes: { id: string; colaboradores: { setor_id: string | null; is_externo: boolean } }[] = [];
+        try {
+            prevInscricoes = await apiJson<typeof prevInscricoes>(
+                `inscricoes/?${qPrev.toString()}`,
+                { auth: false },
+            );
+        } catch {
+            prevInscricoes = [];
+        }
 
         const prevSetores = new Set<string>();
         let prevCount = 0;
@@ -291,10 +457,14 @@ export default function DashboardPage() {
 
         setData({
             ranking,
+            rankingIndividual,
             totalParticipacoes: inscricoes.length,
             totalExternos: externCount,
-            totalInscricoesExternas: inscricoesExternas?.length || 0,
-            totalAcoes: acoes?.length || 0,
+            totalInscricoesExternas: inscricoesExternas.length,
+            totalAcoes: acoes.length,
+            acoesDisponiveisSede,
+            acoesDisponiveisFilial,
+            mediaEngajamentoSetores,
             previousParticipacoes: prevCount,
             previousSetoresAtivos: prevSetores.size,
         });
@@ -307,24 +477,13 @@ export default function DashboardPage() {
     }, [fetchDashboardData]);
 
     useEffect(() => {
-        const channel = supabase
-            .channel("realtime-inscricoes")
-            .on(
-                "postgres_changes",
-                { event: "*", schema: "public", table: "inscricoes" },
-                () => {
-                    fetchDashboardData();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        const id = setInterval(() => {
+            fetchDashboardData();
+        }, 45000);
+        return () => clearInterval(id);
     }, [fetchDashboardData]);
 
     const top3 = data.ranking.slice(0, 3);
-    const maxParticipants = Math.max(...data.ranking.map((r) => r.participantes_unicos), 1);
 
     // Scroll reveal for Podium
     const podiumRef = useRef<HTMLDivElement>(null);
@@ -485,6 +644,24 @@ export default function DashboardPage() {
                             ))}
                         </div>
 
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                            <div className="bg-white/10 border border-white/20 p-4">
+                                <p className="text-accent text-xs uppercase tracking-wide">Ações disponíveis</p>
+                                <p className="text-white text-2xl font-black mt-1">{data.acoesDisponiveisSede}</p>
+                                <p className="text-white/60 text-xs">Sede</p>
+                            </div>
+                            <div className="bg-white/10 border border-white/20 p-4">
+                                <p className="text-accent text-xs uppercase tracking-wide">Ações disponíveis</p>
+                                <p className="text-white text-2xl font-black mt-1">{data.acoesDisponiveisFilial}</p>
+                                <p className="text-white/60 text-xs">Filial</p>
+                            </div>
+                            <div className="bg-white/10 border border-white/20 p-4">
+                                <p className="text-accent text-xs uppercase tracking-wide">Média de equiparação</p>
+                                <p className="text-white text-2xl font-black mt-1">{data.mediaEngajamentoSetores}%</p>
+                                <p className="text-white/60 text-xs">Média de engajamento entre setores</p>
+                            </div>
+                        </div>
+
                         {/* Engajamento comunidade IADVH */}
                         <div className="bg-white/10 border border-white/20 overflow-hidden animate-fade-in-up">
                             <div className="px-6 py-4 border-b border-white/10 flex items-center gap-2">
@@ -592,10 +769,10 @@ export default function DashboardPage() {
                                                         {item.participantes_unicos}
                                                     </p>
                                                     <p className="text-[10px] text-white/80 font-medium">
-                                                        participações
+                                                        confirmadas
                                                     </p>
                                                     <p className="text-[10px] text-white/60 mt-1">
-                                                        {item.taxa_engajamento}% engajamento
+                                                        {item.taxa_engajamento}% da meta
                                                     </p>
                                                 </div>
                                             </div>
@@ -634,7 +811,7 @@ export default function DashboardPage() {
                                                 {item.setor_nome}
                                             </p>
                                             <p className="text-accent text-xs">
-                                                {item.participantes_unicos} de {item.total_membros} membros
+                                                {item.participantes_unicos} confirmadas / meta {item.meta_setor || 0}
                                             </p>
                                         </div>
 
@@ -644,7 +821,7 @@ export default function DashboardPage() {
                                                 <div
                                                     className="h-full bg-gradient-to-r from-accent to-primary-light transition-all duration-700"
                                                     style={{
-                                                        width: `${(item.participantes_unicos / maxParticipants) * 100}%`,
+                                                        width: `${item.taxa_engajamento}%`,
                                                     }}
                                                 />
                                             </div>
@@ -656,11 +833,38 @@ export default function DashboardPage() {
                                                 {item.taxa_engajamento}%
                                             </p>
                                             <p className="text-accent text-[10px] font-medium">
-                                                engajamento
+                                                meta atingida
                                             </p>
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        </div>
+
+                        <div className="mt-8 bg-white/10 border border-white/20 overflow-hidden">
+                            <div className="px-6 py-4 border-b border-white/10">
+                                <h2 className="text-white font-bold">Ranking Individual (Top 10)</h2>
+                            </div>
+                            <div className="divide-y divide-white/10">
+                                {data.rankingIndividual.length === 0 ? (
+                                    <div className="px-6 py-4 text-white/60 text-sm">Sem dados de participação individual no período.</div>
+                                ) : (
+                                    data.rankingIndividual.map((item, i) => (
+                                        <div key={item.colaborador_id} className="px-6 py-4 flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <span className="text-accent font-black w-6 text-right">{i + 1}º</span>
+                                                <div className="min-w-0">
+                                                    <p className="text-white font-semibold truncate">{item.colaborador_nome}</p>
+                                                    <p className="text-accent text-xs truncate">{item.setor_nome}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-white font-black">{item.participacoes_confirmadas}</p>
+                                                <p className="text-accent text-[10px] uppercase">presenças</p>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </div>
                     </>

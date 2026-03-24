@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { supabase } from "@/lib/supabase";
+import { apiJson } from "@/lib/api";
 import type { Setor, Colaborador, AcaoSocial, Inscricao } from "@/lib/types";
 
 /* ── SVG Icons ── */
@@ -87,23 +87,37 @@ export default function MinhasInscricoesPage() {
     }, [selectedColaborador]);
 
     async function fetchSetores() {
-        const { data } = await supabase.from("setores").select("*").order("nome");
-        if (data) setSetores(data);
+        try {
+            const data = await apiJson<Setor[]>("setores/?ordering=nome", { auth: false });
+            setSetores(data);
+        } catch {
+            setSetores([]);
+        }
     }
 
     async function fetchColaboradores(setorId: string) {
-        const { data } = await supabase.from("colaboradores").select("*").eq("setor_id", setorId).order("nome");
-        if (data) setColaboradores(data);
+        try {
+            const data = await apiJson<Colaborador[]>(
+                `colaboradores/?setor_id=${encodeURIComponent(setorId)}&ordering=nome`,
+                { auth: false },
+            );
+            setColaboradores(data);
+        } catch {
+            setColaboradores([]);
+        }
     }
 
     async function fetchInscricoes(colaboradorId: string) {
         setLoading(true);
-        const { data } = await supabase
-            .from("inscricoes")
-            .select("*, acoes_sociais(*)")
-            .eq("colaborador_id", colaboradorId)
-            .order("created_at", { ascending: false });
-        if (data) setInscricoes(data as InscricaoComDetalhes[]);
+        try {
+            const data = await apiJson<InscricaoComDetalhes[]>(
+                `inscricoes/?colaborador_id=${encodeURIComponent(colaboradorId)}&ordering=-created_at`,
+                { auth: false },
+            );
+            setInscricoes(data);
+        } catch {
+            setInscricoes([]);
+        }
         setSearched(true);
         setLoading(false);
     }

@@ -5,8 +5,8 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { supabase } from "@/lib/supabase";
-import type { Setor, Colaborador, AcaoSocial } from "@/lib/types";
+import { ApiError, apiJson, formatApiError } from "@/lib/api";
+import type { Setor, Colaborador, AcaoSocial, Inscricao } from "@/lib/types";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -119,53 +119,63 @@ export default function InscricaoPage() {
 
 
     async function fetchSetores() {
-        const { data } = await supabase.from("setores").select("*").order("nome");
-        if (data) setSetores(data);
+        try {
+            const data = await apiJson<Setor[]>("setores/?ordering=nome", { auth: false });
+            setSetores(data);
+        } catch {
+            setSetores([]);
+        }
     }
 
     async function fetchColaboradores(setorId: string) {
-        const { data } = await supabase.from("colaboradores").select("*").eq("setor_id", setorId).order("nome");
-        if (data) setColaboradores(data);
+        try {
+            const data = await apiJson<Colaborador[]>(
+                `colaboradores/?setor_id=${encodeURIComponent(setorId)}&ordering=nome`,
+                { auth: false },
+            );
+            setColaboradores(data);
+        } catch {
+            setColaboradores([]);
+        }
     }
 
     async function fetchAcoes() {
-        const { data } = await supabase
-            .from("acoes_sociais")
-            .select("*")
-            .eq("ativo", true)
-            .gte("data_evento", new Date().toISOString())
-            .order("data_evento");
-        if (data) {
+        try {
+            const now = new Date().toISOString();
+            const data = await apiJson<AcaoSocial[]>(
+                `acoes_sociais/?ativo=true&data_evento__gte=${encodeURIComponent(now)}&ordering=data_evento`,
+                { auth: false },
+            );
             setAcoes(data);
-            // Fetch inscription counts for vacancy control (grouped by action and sector)
-            const { data: counts } = await supabase
-                .from("inscricoes")
-                .select("acao_id, colaboradores(setor_id)");
+            const counts = await apiJson<Inscricao[]>("inscricoes/", { auth: false });
+            const countMap: Record<string, { total: number; bySector: Record<string, number> }> = {};
+            counts.forEach((row) => {
+                const acaoId = row.acao_id;
+                const colab = row.colaboradores as { setor_id: string | null } | undefined;
+                const setorId = colab?.setor_id;
 
-            if (counts) {
-                const countMap: Record<string, { total: number; bySector: Record<string, number> }> = {};
-                counts.forEach((row) => {
-                    const acaoId = row.acao_id;
-                    const colab = row.colaboradores as unknown as { setor_id: string } | null;
-                    const setorId = colab?.setor_id;
+                if (!countMap[acaoId]) {
+                    countMap[acaoId] = { total: 0, bySector: {} };
+                }
 
-                    if (!countMap[acaoId]) {
-                        countMap[acaoId] = { total: 0, bySector: {} };
-                    }
-
-                    countMap[acaoId].total += 1;
-                    if (setorId) {
-                        countMap[acaoId].bySector[setorId] = (countMap[acaoId].bySector[setorId] || 0) + 1;
-                    }
-                });
-                setInscriptionCounts(countMap);
-            }
+                countMap[acaoId].total += 1;
+                if (setorId) {
+                    countMap[acaoId].bySector[setorId] = (countMap[acaoId].bySector[setorId] || 0) + 1;
+                }
+            });
+            setInscriptionCounts(countMap);
+        } catch {
+            setAcoes([]);
         }
     }
 
     async function fetchExternoColabs() {
-        const { data } = await supabase.from("colaboradores").select("*").eq("is_externo", true).order("nome");
-        if (data) setExternoColabs(data);
+        try {
+            const data = await apiJson<Colaborador[]>("colaboradores/?is_externo=true&ordering=nome", { auth: false });
+            setExternoColabs(data);
+        } catch {
+            setExternoColabs([]);
+        }
     }
 
     useEffect(() => {
@@ -195,23 +205,33 @@ export default function InscricaoPage() {
 
         const fullName = `${externoNome.trim()} (${externoUnidade.trim()})`;
 
-        // Re-use or create colab
-        let { data: extColab } = await supabase.from("colaboradores")
-            .select("id").eq("nome", fullName).eq("is_externo", true).single();
+        let extColab: { id: string } | null = null;
+        try {
+            const found = await apiJson<Colaborador[]>(
+                `colaboradores/?nome=${encodeURIComponent(fullName)}&is_externo=true`,
+                { auth: false },
+            );
+            extColab = found[0] ? { id: found[0].id } : null;
+        } catch {
+            extColab = null;
+        }
 
         if (!extColab) {
-            const { data: freshColab } = await supabase.from("colaboradores")
-                .insert({ nome: fullName, is_externo: true })
-                .select().single();
-            extColab = freshColab;
+            try {
+                const created = await apiJson<Colaborador>("colaboradores/", {
+                    method: "POST",
+                    body: JSON.stringify({ nome: fullName, is_externo: true }),
+                    auth: false,
+                });
+                extColab = { id: created.id };
+            } catch {
+                setExternoLoading(false);
+                setError("Erro ao registrar. Tente novamente.");
+                return;
+            }
         }
 
         setExternoLoading(false);
-
-        if (!extColab) {
-            setError("Erro ao registrar. Tente novamente.");
-            return;
-        }
 
         setSelectedColaborador(extColab.id);
         setStep(3);
@@ -229,23 +249,33 @@ export default function InscricaoPage() {
         setLoading(true);
         setError(null);
 
-        const { error: insertError } = await supabase.from("inscricoes").insert({
-            acao_id: selectedAcao,
-            colaborador_id: selectedColaborador,
-            confirmado_presenca: false,
-        });
-
-        setLoading(false);
-        if (insertError) {
-            if (insertError.code === "23505") {
-                setError("Você já está inscrito nesta ação social!");
+        try {
+            await apiJson<Inscricao>("inscricoes/", {
+                method: "POST",
+                body: JSON.stringify({
+                    acao_id: selectedAcao,
+                    colaborador_id: selectedColaborador,
+                    confirmado_presenca: false,
+                }),
+                auth: false,
+            });
+            setSuccess(true);
+            setStep(4);
+        } catch (e) {
+            if (e instanceof ApiError && e.status === 400) {
+                const body = e.body as Record<string, unknown>;
+                const msg = JSON.stringify(body);
+                if (msg.includes("duplicad") || msg.includes("Inscrição")) {
+                    setError("Você já está inscrito nesta ação social!");
+                } else {
+                    setError(formatApiError(e));
+                }
             } else {
                 setError("Erro ao realizar inscrição. Tente novamente.");
             }
-        } else {
-            setSuccess(true);
-            setStep(4);
         }
+
+        setLoading(false);
     }
 
     function resetForm() {

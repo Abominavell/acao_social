@@ -6,9 +6,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { supabase } from "@/lib/supabase";
+import { apiJson, formatApiError } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/components/auth-provider";
-import type { AcaoSocial, Inscricao, Setor } from "@/lib/types";
+import type { AcaoSocial, Colaborador, Inscricao, Setor } from "@/lib/types";
 
 /* ── SVG Icons ── */
 
@@ -112,7 +112,7 @@ function CheckCircleIcon() {
 }
 
 function AdminContent() {
-    const { user, signOut } = useAuth();
+    const { user, loading: authLoading, signOut } = useAuth();
     const router = useRouter();
     const [acoes, setAcoes] = useState<AcaoSocial[]>([]);
     const [selectedAcao, setSelectedAcao] = useState<string>("");
@@ -135,80 +135,128 @@ function AdminContent() {
     const [filterMonth, setFilterMonth] = useState<string>("");
     const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
     const [setores, setSetores] = useState<Setor[]>([]);
+    const [setorInternalCounts, setSetorInternalCounts] = useState<Record<string, number>>({});
 
 
 
     async function fetchSetores() {
-        const { data } = await supabase.from("setores").select("*").order("nome");
-        if (data) setSetores(data);
-    }
-
-    async function fetchAcoes() {
-        const { data } = await supabase
-            .from("acoes_sociais")
-            .select("*")
-            .order("data_evento", { ascending: false });
-        if (data) {
-            setAcoes(data);
-            // Default is now "All Actions" (selectedAcao = ""), so we don't auto-select the first one anymore.
+        try {
+            const data = await apiJson<Setor[]>("setores/?ordering=nome", { auth: true });
+            setSetores(data);
+        } catch {
+            /* silencioso: painel continua sem lista de setores */
         }
     }
 
+    async function fetchSetorInternalCounts() {
+        try {
+            const colaboradores = await apiJson<Colaborador[]>("colaboradores/?ordering=nome", { auth: true });
+            const counts: Record<string, number> = {};
+            colaboradores.forEach((c) => {
+                if (!c.is_externo && c.setor_id) {
+                    counts[c.setor_id] = (counts[c.setor_id] || 0) + 1;
+                }
+            });
+            setSetorInternalCounts(counts);
+        } catch {
+            setSetorInternalCounts({});
+        }
+    }
+
+    async function fetchAcoes() {
+        try {
+            const data = await apiJson<AcaoSocial[]>("acoes_sociais/?ordering=-data_evento", { auth: true });
+            setAcoes(data);
+        } catch {
+            /* silencioso */
+        }
+    }
+
+    function calculateVagasSetorProporcional(vagasLimite: number): Record<string, number> {
+        const entries = Object.entries(setorInternalCounts).filter(([, count]) => count > 0);
+        const totalInternos = entries.reduce((acc, [, count]) => acc + count, 0);
+        if (vagasLimite <= 0 || totalInternos <= 0 || entries.length === 0) return {};
+
+        const base: Record<string, number> = {};
+        const restos: { setorId: string; resto: number }[] = [];
+        let somaBase = 0;
+
+        entries.forEach(([setorId, count]) => {
+            const quota = (vagasLimite * count) / totalInternos;
+            const floorVal = Math.floor(quota);
+            base[setorId] = floorVal;
+            somaBase += floorVal;
+            restos.push({ setorId, resto: quota - floorVal });
+        });
+
+        let sobrando = vagasLimite - somaBase;
+        restos.sort((a, b) => b.resto - a.resto);
+        for (let i = 0; i < restos.length && sobrando > 0; i += 1) {
+            base[restos[i].setorId] += 1;
+            sobrando -= 1;
+        }
+
+        return base;
+    }
+
     function validateVagasSetor(vagasPorSetor: Record<string, number>, vagasLimite: number): string | null {
-        const cleanValues = Object.values(vagasPorSetor).filter(v => !isNaN(v) && v > 0);
-        if (cleanValues.length === 0) return "Preencha pelo menos 1 setor com vagas específicas.";
+        const cleanValues = Object.values(vagasPorSetor).filter((v) => !isNaN(v) && v > 0);
         const soma = cleanValues.reduce((a, b) => a + b, 0);
-        if (soma > vagasLimite) return `A soma das vagas por setor (${soma}) ultrapassa o limite global (${vagasLimite}).`;
+        if (cleanValues.length === 0) return "Não há colaboradores internos suficientes para distribuir as vagas.";
+        if (soma !== vagasLimite) return `A soma das vagas por setor (${soma}) deve ser igual ao limite global (${vagasLimite}).`;
         return null;
     }
 
     async function fetchInscricoes(acaoId?: string) {
         setLoading(true);
-        let query = supabase
-            .from("inscricoes")
-            .select(`*, colaboradores (id, nome, is_externo, setor_id, setores:setor_id (nome))`)
-            .order("created_at", { ascending: false }); // Sort descending by default for better global view
-
-        if (acaoId) {
-            query = query.eq("acao_id", acaoId);
+        try {
+            const params = new URLSearchParams({ ordering: "-created_at" });
+            if (acaoId) params.set("acao_id", acaoId);
+            const data = await apiJson<Inscricao[]>(`inscricoes/?${params.toString()}`, { auth: true });
+            setInscricoes(data);
+        } catch {
+            setInscricoes([]);
         }
-
-        const { data } = await query;
-        if (data) setInscricoes(data as unknown as Inscricao[]);
         setLoading(false);
     }
 
     async function togglePresenca(inscricaoId: string, current: boolean) {
-        await supabase
-            .from("inscricoes")
-            .update({ confirmado_presenca: !current })
-            .eq("id", inscricaoId);
-        setInscricoes((prev) =>
-            prev.map((i) => (i.id === inscricaoId ? { ...i, confirmado_presenca: !current } : i))
-        );
+        try {
+            await apiJson(`inscricoes/${inscricaoId}/`, {
+                method: "PATCH",
+                body: JSON.stringify({ confirmado_presenca: !current }),
+                auth: true,
+            });
+            setInscricoes((prev) =>
+                prev.map((i) => (i.id === inscricaoId ? { ...i, confirmado_presenca: !current } : i))
+            );
+        } catch (e) {
+            console.error(formatApiError(e));
+        }
     }
 
     useEffect(() => {
+        if (authLoading) return;
+        if (!user) {
+            router.push("/admin/login");
+            return;
+        }
         fetchAcoes();
         fetchSetores();
-    }, []);
+        fetchSetorInternalCounts();
+    }, [authLoading, user, router]);
 
     useEffect(() => {
+        if (!user) return;
         fetchInscricoes(selectedAcao);
-    }, [selectedAcao]);
+    }, [selectedAcao, user]);
 
     async function handleCreateAcao(e: React.FormEvent) {
         e.preventDefault();
         setFormError(null);
         if (!newAcao.titulo || !newAcao.data_evento) return;
 
-        // Clean up empty sector limits
-        const cleanVagasSetor = { ...newAcao.vagas_por_setor };
-        Object.keys(cleanVagasSetor).forEach(k => {
-            if (cleanVagasSetor[k] === undefined || isNaN(cleanVagasSetor[k])) {
-                delete cleanVagasSetor[k];
-            }
-        });
+        const cleanVagasSetor = calculateVagasSetorProporcional(newAcao.vagas_limite);
 
         // Validate sector vacancies
         const validationErr = validateVagasSetor(cleanVagasSetor, newAcao.vagas_limite);
@@ -217,16 +265,21 @@ function AdminContent() {
             return;
         }
 
-        const { error } = await supabase.from("acoes_sociais").insert({
-            titulo: newAcao.titulo,
-            descricao: newAcao.descricao || null,
-            data_evento: newAcao.data_evento,
-            vagas_limite: newAcao.vagas_limite,
-            vagas_por_setor: Object.keys(cleanVagasSetor).length > 0 ? cleanVagasSetor : null,
-            ativo: true,
-        });
-        if (error) {
-            console.error("Erro ao criar ação:", error);
+        try {
+            await apiJson("acoes_sociais/", {
+                method: "POST",
+                body: JSON.stringify({
+                    titulo: newAcao.titulo,
+                    descricao: newAcao.descricao || null,
+                    data_evento: newAcao.data_evento,
+                    vagas_limite: newAcao.vagas_limite,
+                    vagas_por_setor: Object.keys(cleanVagasSetor).length > 0 ? cleanVagasSetor : null,
+                    ativo: true,
+                }),
+                auth: true,
+            });
+        } catch (e) {
+            console.error("Erro ao criar ação:", formatApiError(e));
             return;
         }
         setFormError(null);
@@ -240,12 +293,7 @@ function AdminContent() {
         setFormError(null);
         if (!editingAcao) return;
 
-        const cleanVagasSetor = editingAcao.vagas_por_setor ? { ...editingAcao.vagas_por_setor } : {};
-        Object.keys(cleanVagasSetor).forEach(k => {
-            if (cleanVagasSetor[k] === undefined || isNaN(cleanVagasSetor[k])) {
-                delete cleanVagasSetor[k];
-            }
-        });
+        const cleanVagasSetor = calculateVagasSetorProporcional(editingAcao.vagas_limite);
 
         // Validate sector vacancies
         const validationErr = validateVagasSetor(cleanVagasSetor, editingAcao.vagas_limite);
@@ -263,13 +311,14 @@ function AdminContent() {
             ativo: editingAcao.ativo,
         };
 
-        const { error } = await supabase
-            .from("acoes_sociais")
-            .update(updatePayload)
-            .eq("id", editingAcao.id);
-
-        if (error) {
-            console.error("Erro ao salvar ação:", error);
+        try {
+            await apiJson(`acoes_sociais/${editingAcao.id}/`, {
+                method: "PATCH",
+                body: JSON.stringify(updatePayload),
+                auth: true,
+            });
+        } catch (e) {
+            console.error("Erro ao salvar ação:", formatApiError(e));
             alert("Erro ao salvar alterações. Verifique o console para mais detalhes.");
             return;
         }
@@ -280,8 +329,11 @@ function AdminContent() {
     }
 
     async function handleDeleteAcao(acaoId: string) {
-        await supabase.from("inscricoes").delete().eq("acao_id", acaoId);
-        await supabase.from("acoes_sociais").delete().eq("id", acaoId);
+        const list = await apiJson<{ id: string }[]>(`inscricoes/?acao_id=${acaoId}`, { auth: true });
+        await Promise.all(
+            list.map((i) => apiJson(`inscricoes/${i.id}/`, { method: "DELETE", auth: true })),
+        );
+        await apiJson(`acoes_sociais/${acaoId}/`, { method: "DELETE", auth: true });
         setDeleteConfirm(null);
         if (selectedAcao === acaoId) setSelectedAcao("");
         await fetchAcoes();
@@ -289,11 +341,16 @@ function AdminContent() {
 
     /* ── Improvement #2: Toggle Active ── */
     async function toggleAtivo(acao: AcaoSocial) {
-        await supabase
-            .from("acoes_sociais")
-            .update({ ativo: !acao.ativo })
-            .eq("id", acao.id);
-        fetchAcoes();
+        try {
+            await apiJson(`acoes_sociais/${acao.id}/`, {
+                method: "PATCH",
+                body: JSON.stringify({ ativo: !acao.ativo }),
+                auth: true,
+            });
+            fetchAcoes();
+        } catch (e) {
+            console.error(formatApiError(e));
+        }
     }
 
     /* ── Improvement #4: Export CSV ── */
@@ -346,6 +403,21 @@ function AdminContent() {
         await signOut();
         router.push("/admin/login");
     }
+
+    const generatedNewVagasPorSetor = calculateVagasSetorProporcional(newAcao.vagas_limite);
+    const generatedEditVagasPorSetor = editingAcao
+        ? calculateVagasSetorProporcional(editingAcao.vagas_limite)
+        : {};
+
+    if (authLoading) {
+        return (
+            <main className="min-h-screen bg-background flex items-center justify-center text-text-secondary">
+                Carregando...
+            </main>
+        );
+    }
+
+    if (!user) return null;
 
     function prevMonth() {
         setCurrentMonthDate(new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() - 1, 1));
@@ -437,7 +509,7 @@ function AdminContent() {
                         <span className="font-bold text-sm text-white/60">Admin</span>
                     </Link>
                     <div className="flex items-center gap-3">
-                        <span className="text-xs text-white/40 hidden md:inline">{user?.email}</span>
+                        <span className="text-xs text-white/40 hidden md:inline">{user?.username}</span>
                         <Link href="/dashboard" className="text-sm text-accent hover:underline">
                             Dashboard
                         </Link>
@@ -455,6 +527,17 @@ function AdminContent() {
                         <p className="text-text-secondary text-sm">
                             Gerencie ações sociais e presenças
                         </p>
+                        <div className="mt-3 flex items-center gap-2">
+                            <Link href="/admin/setores" className="btn btn-outline text-xs py-1.5 px-3 min-h-0">
+                                CRUD de Setores
+                            </Link>
+                            <Link href="/admin/colaboradores" className="btn btn-outline text-xs py-1.5 px-3 min-h-0">
+                                CRUD de Colaboradores
+                            </Link>
+                            <Link href="/admin/metas" className="btn btn-outline text-xs py-1.5 px-3 min-h-0">
+                                Metas por Setor
+                            </Link>
+                        </div>
                     </div>
                     <button
                         className="btn btn-primary flex items-center gap-2"
@@ -489,26 +572,20 @@ function AdminContent() {
                                 <input type="number" className="input-field" min={1} value={newAcao.vagas_limite} onChange={(e) => setNewAcao({ ...newAcao, vagas_limite: parseInt(e.target.value) || 0 })} />
                             </div>
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-text-secondary mb-2">Vagas Específicas por Setor <span className="text-error">*</span></label>
+                                <label className="block text-sm font-medium text-text-secondary mb-2">
+                                    Vagas proporcionais por setor (automático)
+                                </label>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 p-4 rounded border border-gray-100 max-h-48 overflow-y-auto">
                                     {setores.map(s => (
                                         <div key={s.id}>
-                                            <label className="text-xs text-text-secondary truncate block" title={s.nome}>{s.nome}</label>
+                                            <label className="text-xs text-text-secondary truncate block" title={s.nome}>
+                                                {s.nome} ({setorInternalCounts[s.id] || 0})
+                                            </label>
                                             <input
                                                 type="number"
                                                 className="input-field py-1 px-2 text-sm"
-                                                placeholder="Sem lim."
-                                                value={newAcao.vagas_por_setor[s.id] || ""}
-                                                onChange={e => {
-                                                    const val = parseInt(e.target.value);
-                                                    setNewAcao(prev => ({
-                                                        ...prev,
-                                                        vagas_por_setor: {
-                                                            ...prev.vagas_por_setor,
-                                                            [s.id]: isNaN(val) ? undefined : val
-                                                        } as Record<string, number>
-                                                    }))
-                                                }}
+                                                value={generatedNewVagasPorSetor[s.id] || 0}
+                                                disabled
                                             />
                                         </div>
                                     ))}
@@ -549,29 +626,20 @@ function AdminContent() {
                                 <input type="number" className="input-field" min={1} value={editingAcao.vagas_limite} onChange={(e) => setEditingAcao({ ...editingAcao, vagas_limite: parseInt(e.target.value) || 0 })} />
                             </div>
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-text-secondary mb-2">Vagas Específicas por Setor <span className="text-error">*</span></label>
+                                <label className="block text-sm font-medium text-text-secondary mb-2">
+                                    Vagas proporcionais por setor (automático)
+                                </label>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 p-4 rounded border border-gray-100 max-h-48 overflow-y-auto">
                                     {setores.map(s => (
                                         <div key={s.id}>
-                                            <label className="text-xs text-text-secondary truncate block" title={s.nome}>{s.nome}</label>
+                                            <label className="text-xs text-text-secondary truncate block" title={s.nome}>
+                                                {s.nome} ({setorInternalCounts[s.id] || 0})
+                                            </label>
                                             <input
                                                 type="number"
                                                 className="input-field py-1 px-2 text-sm"
-                                                placeholder="Sem lim."
-                                                value={editingAcao.vagas_por_setor?.[s.id] || ""}
-                                                onChange={e => {
-                                                    const val = parseInt(e.target.value);
-                                                    setEditingAcao(prev => {
-                                                        if (!prev) return prev;
-                                                        return {
-                                                            ...prev,
-                                                            vagas_por_setor: {
-                                                                ...(prev.vagas_por_setor || {}),
-                                                                [s.id]: isNaN(val) ? undefined : val
-                                                            } as Record<string, number>
-                                                        };
-                                                    })
-                                                }}
+                                                value={generatedEditVagasPorSetor[s.id] || 0}
+                                                disabled
                                             />
                                         </div>
                                     ))}

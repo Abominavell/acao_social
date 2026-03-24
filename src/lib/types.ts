@@ -6,11 +6,14 @@ export interface Setor {
 
 export interface Colaborador {
     id: string;
-    setor_id: string;
+    /** Null para voluntários externos criados sem setor. */
+    setor_id: string | null;
     nome: string;
     whatsapp?: string | null;
     is_externo: boolean;
     created_at: string;
+    /** Preenchido nas respostas aninhadas da API (equivalente ao join com setores). */
+    setores?: { id: string; nome: string } | null;
 }
 
 export interface AcaoSocial {
@@ -40,4 +43,5 @@ export interface RankingSetor {
     participantes_unicos: number;
     total_membros: number;
     taxa_engajamento: number;
+    meta_setor?: number;
 }
