@@ -118,6 +118,19 @@ export default function ColaboradoresPage() {
         fetchBase();
     }
 
+    function formatDateOnly(dateStr: string) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})/.exec((dateStr || "").trim());
+        if (!m) return new Date(dateStr).toLocaleDateString("pt-BR");
+        const year = Number(m[1]);
+        const month = Number(m[2]);
+        const day = Number(m[3]);
+        return new Date(year, month - 1, day).toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+        });
+    }
+
     async function importarExcelColaboradores(e: React.FormEvent) {
         e.preventDefault();
         if (!importFile) {
@@ -147,7 +160,6 @@ export default function ColaboradoresPage() {
 
     return (
         <WorkspaceShell
-            dark
             title="CRUD de Colaboradores"
             subtitle="Gerencie cadastro, edição e importação em lote de colaboradores."
             navItems={[
@@ -219,7 +231,7 @@ export default function ColaboradoresPage() {
                                         <div className="flex-1">
                                             <p className="font-medium text-text-primary">{col.nome}</p>
                                             <p className="text-xs text-text-secondary">
-                                                CPF: {col.cpf || "—"} • Nasc.: {col.data_nascimento ? new Date(col.data_nascimento).toLocaleDateString("pt-BR") : "—"} • {setorNome}
+                                                CPF: {col.cpf || "—"} • Nasc.: {col.data_nascimento ? formatDateOnly(col.data_nascimento) : "—"} • {setorNome}
                                             </p>
                                         </div>
                                         <button

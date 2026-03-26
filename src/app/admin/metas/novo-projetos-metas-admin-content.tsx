@@ -97,7 +97,6 @@ export default function ProjetosMetasAdminContent() {
     if (loading) {
         return (
             <WorkspaceShell
-                dark
                 title="Cobertura Anual por Setor"
                 subtitle="Meta anual de participação por setor."
                 navItems={[
@@ -113,7 +112,6 @@ export default function ProjetosMetasAdminContent() {
 
     return (
         <WorkspaceShell
-            dark
             title="Cobertura Anual por Setor"
             subtitle="Meta anual: garantir participação de todos os colaboradores ao longo do ano."
             navItems={[

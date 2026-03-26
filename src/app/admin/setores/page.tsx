@@ -101,7 +101,6 @@ export default function SetoresPage() {
 
     return (
         <WorkspaceShell
-            dark
             title="CRUD de Setores"
             subtitle="Cadastre, edite e remova setores da operação."
             navItems={[

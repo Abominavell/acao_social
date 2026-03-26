@@ -11,7 +11,7 @@ export function Input({ label, hint, error, className, id, ...props }: InputProp
   const inputId = id || props.name;
   return (
     <label className="block space-y-1.5">
-      {label ? <span className="text-xs font-semibold text-slate-600">{label}</span> : null}
+      {label ? <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{label}</span> : null}
       <input
         id={inputId}
         className={cn(

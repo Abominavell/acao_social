@@ -9,6 +9,7 @@ import { StepIndicator } from "@/app/inscricao/components/step-indicator";
 import { InscricaoStickyConfirmBar } from "@/app/inscricao/components/inscricao-sticky-confirm-bar";
 import { ProjectDateSelector } from "@/app/inscricao/components/project-date-selector";
 import { InscricaoSuccessCard } from "@/app/inscricao/components/inscricao-success-card";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 type Step = 1 | 2 | 3 | 4;
 const SEDE_AUTH_STORAGE_KEY = "monitoramento_sede_auth";
@@ -64,12 +65,10 @@ function formatDateTimeShort(dateStr: string) {
     return `${formatDateShort(dateStr)} • ${time}`;
 }
 
-function maskCpf(value: string) {
-    const digits = value.replace(/\D/g, "").slice(0, 11);
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-    if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
-    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+function formatCpfDigits(cpfDigits: string) {
+    const d = cpfDigits.replace(/\D/g, "").slice(0, 11);
+    if (d.length !== 11) return d;
+    return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
 export default function NovoInscricaoContent() {
@@ -116,14 +115,27 @@ export default function NovoInscricaoContent() {
         setLoginLoading(true);
         setError(null);
         try {
-            const data = await apiJson<SedeLoginResponse>("auth/colaborador-login/", {
-                method: "POST",
-                auth: false,
-                body: JSON.stringify({
-                    cpf: loginCpf.trim(),
-                    senha: loginSenha.trim(),
-                }),
-            });
+            const cpfDigits = loginCpf.replace(/\D/g, "");
+            let data: SedeLoginResponse;
+            try {
+                data = await apiJson<SedeLoginResponse>("auth/colaborador-login/", {
+                    method: "POST",
+                    auth: false,
+                    body: JSON.stringify({
+                        cpf: cpfDigits,
+                        senha: loginSenha.trim(),
+                    }),
+                });
+            } catch {
+                data = await apiJson<SedeLoginResponse>("auth/colaborador-login/", {
+                    method: "POST",
+                    auth: false,
+                    body: JSON.stringify({
+                        cpf: formatCpfDigits(cpfDigits),
+                        senha: loginSenha.trim(),
+                    }),
+                });
+            }
             if (typeof window !== "undefined") {
                 window.sessionStorage.setItem(
                     SEDE_AUTH_STORAGE_KEY,
@@ -336,30 +348,36 @@ export default function NovoInscricaoContent() {
     const progressStep = success ? 3 : sedeAuthenticated ? 2 : 1;
 
     return (
-        <div className="min-h-screen bg-slate-950">
-            <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/90 backdrop-blur">
-                <div className="w-[92vw] max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+            <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-slate-950/90">
+                <div className="mx-auto flex w-[92vw] max-w-[1400px] items-center justify-between gap-3 px-4 py-4">
                     <Link href="/" className="flex items-center gap-2" aria-label="Voltar para início">
-                        <div className="rounded-lg bg-white/95 px-3 py-1.5">
+                        <div className="rounded-lg bg-white/95 px-3 py-1.5 shadow-sm ring-1 ring-black/5">
                             <Image src="/logo.svg" alt="Logo IADVh" width={120} height={44} className="h-8 w-auto" priority />
                         </div>
                     </Link>
-                    <Link href="/dashboard" className="text-xs font-semibold text-slate-300 hover:text-white">
-                        Ver dashboard
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <Link
+                            href="/dashboard"
+                            className="text-xs font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                        >
+                            Ver dashboard
+                        </Link>
+                        <ThemeToggle />
+                    </div>
                 </div>
             </header>
 
-            <main className="w-[92vw] max-w-[1400px] mx-auto px-4 py-6 pb-28">
+            <main className="mx-auto w-[92vw] max-w-[1400px] px-4 py-6 pb-28">
                 {!success ? (
-                    <section className="mb-5 rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-emerald-950/70 to-slate-900 p-5">
-                        <p className="inline-flex rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
+                    <section className="mb-5 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-100 via-emerald-100/60 to-slate-100 p-5 dark:border-white/10 dark:from-slate-900 dark:via-emerald-950/70 dark:to-slate-900">
+                        <p className="inline-flex rounded-full border border-emerald-300/60 bg-emerald-500/15 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:border-emerald-300/30 dark:bg-emerald-500/10 dark:text-emerald-200">
                             Inscrição guiada
                         </p>
-                        <h1 className="mt-3 text-xl font-black tracking-tight text-white md:text-2xl">
+                        <h1 className="mt-3 text-xl font-black tracking-tight text-slate-900 dark:text-white md:text-2xl">
                             Garanta sua vaga em poucos passos
                         </h1>
-                        <p className="mt-2 max-w-2xl text-sm text-slate-300">
+                        <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
                             Faça login com seus dados, escolha o projeto e confirme sua participação com segurança.
                         </p>
                     </section>
@@ -368,22 +386,26 @@ export default function NovoInscricaoContent() {
 
                 {/* Step 1: Login */}
                 {!success && !sedeAuthenticated && (
-                    <div className="card mb-4 animate-fade-in-up border-white/10 bg-slate-900">
-                        <label className="block text-sm font-semibold text-white mb-3">1. Faça login para continuar</label>
-                        <p className="mb-3 text-xs text-slate-300">Use seu CPF e sua senha (data de nascimento em formato DDMMAAAA).</p>
+                    <div className="card mb-4 animate-fade-in-up border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+                        <label className="mb-3 block text-sm font-semibold text-slate-900 dark:text-white">1. Faça login para continuar</label>
+                        <p className="mb-3 text-xs text-slate-600 dark:text-slate-300">
+                            Use seu CPF e sua senha (data de nascimento em formato DDMMAAAA).
+                            <br />
+                            Ex.: se nasceu em <span className="font-semibold">05/07/1981</span> use <span className="font-semibold">05071981</span>.
+                        </p>
                         <form onSubmit={handleInlineLogin} className="space-y-3">
                             <input
-                                className="input-field border-slate-700 bg-slate-950 text-white"
-                                placeholder="CPF"
+                                className="input-field border-slate-300 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                                placeholder="CPF (somente números)"
                                 value={loginCpf}
-                                onChange={(e) => setLoginCpf(maskCpf(e.target.value))}
+                                onChange={(e) => setLoginCpf(e.target.value.replace(/\D/g, "").slice(0, 11))}
                                 autoComplete="username"
                                 inputMode="numeric"
-                                maxLength={14}
+                                maxLength={11}
                                 required
                             />
                             <input
-                                className="input-field border-slate-700 bg-slate-950 text-white"
+                                className="input-field border-slate-300 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                                 placeholder="Senha (DDMMAAAA)"
                                 value={loginSenha}
                                 onChange={(e) => setLoginSenha(e.target.value)}
@@ -393,7 +415,7 @@ export default function NovoInscricaoContent() {
                                 maxLength={8}
                                 required
                             />
-                            <p className="text-[11px] text-slate-400">Exemplo de senha: 01011990</p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Exemplo de senha: 01011990</p>
                             <button type="submit" className="btn btn-primary w-full" disabled={loginLoading || !loginCpf.trim() || !loginSenha.trim()}>
                                 {loginLoading ? "Entrando..." : "Entrar e continuar"}
                             </button>
@@ -402,11 +424,11 @@ export default function NovoInscricaoContent() {
                 )}
 
                 {!success && sedeAuthenticated && step >= 3 && sedeAuthNome && (
-                    <div className="card mb-4 animate-fade-in-up border-emerald-400/30 bg-emerald-500/10">
+                    <div className="card mb-4 animate-fade-in-up border-emerald-400/40 bg-emerald-50 dark:border-emerald-400/30 dark:bg-emerald-500/10">
                         <div className="flex items-center justify-between">
                             <div>
-                                <label className="block text-xs text-emerald-200">Colaborador da sede autenticado</label>
-                                <span className="text-sm font-semibold text-white">{sedeAuthNome}</span>
+                                <label className="block text-xs text-emerald-700 dark:text-emerald-200">Colaborador da sede autenticado</label>
+                                <span className="text-sm font-semibold text-slate-900 dark:text-white">{sedeAuthNome}</span>
                             </div>
                             <button
                                 onClick={() => {
@@ -421,7 +443,7 @@ export default function NovoInscricaoContent() {
                                     setLoginCpf("");
                                     setLoginSenha("");
                                 }}
-                                className="text-xs text-slate-200 hover:text-white underline"
+                                className="text-xs text-slate-600 underline hover:text-slate-900 dark:text-slate-200 dark:hover:text-white"
                             >
                                 Trocar login
                             </button>
@@ -430,11 +452,11 @@ export default function NovoInscricaoContent() {
                 )}
 
                 {!success && sedeAuthenticated && selectedSetor && (
-                    <div className="card mb-4 animate-fade-in-up border-white/10 bg-slate-900">
+                    <div className="card mb-4 animate-fade-in-up border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
                         <div className="flex items-center justify-between">
                             <div>
-                                <label className="block text-xs text-slate-300">Setor</label>
-                                <span className="text-sm font-semibold text-white">{setores.find((s) => s.id === selectedSetor)?.nome}</span>
+                                <label className="block text-xs text-slate-600 dark:text-slate-300">Setor</label>
+                                <span className="text-sm font-semibold text-slate-900 dark:text-white">{setores.find((s) => s.id === selectedSetor)?.nome}</span>
                             </div>
                         </div>
                     </div>
@@ -473,7 +495,7 @@ export default function NovoInscricaoContent() {
             {/* Sticky Confirm Bar */}
             {selectedDataProjetoId && step === 3 && !success && (
                 <InscricaoStickyConfirmBar
-                    error={error}
+                    error={error ?? ""}
                     selectedProjetoTitulo={selectedProjetoTitulo}
                     selectedDataEventoLabel={selectedData ? formatDateTimeShort(selectedData.data_evento) : ""}
                     loading={loading}

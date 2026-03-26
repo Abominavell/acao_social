@@ -20,7 +20,7 @@ export function BrandLogo({ href = "/", compact = false }: BrandLogoProps) {
         />
       </div>
       {!compact ? (
-        <span className="hidden text-sm font-semibold tracking-tight text-slate-700 md:inline">
+        <span className="hidden text-sm font-semibold tracking-tight text-slate-700 dark:text-slate-200 md:inline">
           Monitoramento de Voluntariado
         </span>
       ) : null}

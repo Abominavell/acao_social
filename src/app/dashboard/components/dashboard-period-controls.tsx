@@ -18,22 +18,22 @@ export function DashboardPeriodControls({
   onYearChange,
 }: Props) {
   return (
-    <div className="flex flex-col items-center mb-8 gap-4">
-      <div className="bg-primary-dark/40 p-1 flex rounded">
+    <div className="mb-8 flex flex-col items-center gap-4">
+      <div className="flex rounded bg-emerald-100 p-1 dark:bg-primary-dark/40">
         <button
-          className={`px-6 py-2 text-sm font-semibold transition-all rounded-l ${periodo === "mes" ? "bg-white text-primary shadow-lg" : "text-white/70 hover:text-white"}`}
+          className={`rounded-l px-6 py-2 text-sm font-semibold transition-all ${periodo === "mes" ? "bg-white text-primary shadow-lg" : "text-slate-600 hover:text-slate-900 dark:text-white/70 dark:hover:text-white"}`}
           onClick={() => onPeriodoChange("mes")}
         >
           Mês Atual
         </button>
         <button
-          className={`px-6 py-2 text-sm font-semibold transition-all ${periodo === "ano" ? "bg-white text-primary shadow-lg" : "text-white/70 hover:text-white"}`}
+          className={`px-6 py-2 text-sm font-semibold transition-all ${periodo === "ano" ? "bg-white text-primary shadow-lg" : "text-slate-600 hover:text-slate-900 dark:text-white/70 dark:hover:text-white"}`}
           onClick={() => onPeriodoChange("ano")}
         >
           Ano Atual
         </button>
         <button
-          className={`px-6 py-2 text-sm font-semibold transition-all rounded-r ${periodo === "custom" ? "bg-white text-primary shadow-lg" : "text-white/70 hover:text-white"}`}
+          className={`rounded-r px-6 py-2 text-sm font-semibold transition-all ${periodo === "custom" ? "bg-white text-primary shadow-lg" : "text-slate-600 hover:text-slate-900 dark:text-white/70 dark:hover:text-white"}`}
           onClick={() => onPeriodoChange("custom")}
         >
           Específico
@@ -43,7 +43,7 @@ export function DashboardPeriodControls({
       {periodo === "custom" ? (
         <div className="flex items-center gap-2 animate-fade-in-up">
           <select
-            className="bg-white/10 border border-white/20 text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:border-white/40 [&>option]:text-primary"
+            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:border-emerald-500 dark:border-white/20 dark:bg-white/10 dark:text-white dark:focus:border-white/40 [&>option]:text-primary"
             value={selectedMonth}
             onChange={(e) => onMonthChange(parseInt(e.target.value))}
           >
@@ -57,7 +57,7 @@ export function DashboardPeriodControls({
             })}
           </select>
           <select
-            className="bg-white/10 border border-white/20 text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:border-white/40 [&>option]:text-primary"
+            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:border-emerald-500 dark:border-white/20 dark:bg-white/10 dark:text-white dark:focus:border-white/40 [&>option]:text-primary"
             value={selectedYear}
             onChange={(e) => onYearChange(parseInt(e.target.value))}
           >

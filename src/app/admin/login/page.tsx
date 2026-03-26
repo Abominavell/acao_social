@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 function LockIcon() {
     return (
@@ -67,36 +68,39 @@ function LoginForm() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+        <div className="relative flex min-h-screen items-center justify-center bg-slate-100 px-4 dark:bg-slate-950">
+            <div className="absolute right-4 top-4">
+                <ThemeToggle />
+            </div>
             <div className="w-full max-w-sm">
                 {/* Logo */}
-                <div className="text-center mb-8">
+                <div className="mb-8 text-center">
                     <Image
                         src="/logo.svg"
                         alt="Logo IADVh"
                         width={180}
                         height={66}
-                        className="h-14 w-auto mx-auto mb-4"
+                        className="mx-auto mb-4 h-14 w-auto"
                         priority
                     />
-                    <div className="flex items-center justify-center gap-2 text-slate-300 mb-1">
+                    <div className="mb-1 flex items-center justify-center gap-2 text-slate-600 dark:text-slate-300">
                         <LockIcon />
-                        <h1 className="text-lg font-bold text-white">Painel Administrativo</h1>
+                        <h1 className="text-lg font-bold text-slate-900 dark:text-white">Painel Administrativo</h1>
                     </div>
-                    <p className="text-sm text-slate-300">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
                         Acesso restrito à Equipe de Responsabilidade Social
                     </p>
                 </div>
 
                 {/* Form */}
-                <Card className="border-white/10 bg-slate-900">
+                <Card className="border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
                     <form onSubmit={handleSubmit}>
                         {error ? <Alert tone="error" className="mb-4">{error}</Alert> : null}
 
                         <div className="mb-4">
                             <Input
                                 label="Usuário (Django)"
-                                className="admin-login-input border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-200/30"
+                                className="admin-login-input border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:ring-emerald-200/30"
                                 id="username"
                                 type="text"
                                 placeholder="mesmo usuário do createsuperuser"
@@ -109,14 +113,14 @@ function LoginForm() {
                         </div>
 
                         <div className="mb-6">
-                            <label htmlFor="password" className="block text-sm font-semibold text-slate-200 mb-1.5">
+                            <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
                                 Senha
                             </label>
                             <div className="relative">
                                 <input
                                     id="password"
                                     type={showPassword ? "text" : "password"}
-                                    className="input-field admin-login-input pr-12 border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-400"
+                                    className="input-field admin-login-input h-10 w-full rounded-xl border border-slate-300 bg-white px-3 pr-12 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:ring-emerald-200/30"
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -125,7 +129,7 @@ function LoginForm() {
                                 />
                                 <button
                                     type="button"
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors p-1"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
                                     onClick={() => setShowPassword(!showPassword)}
                                     aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                                 >
@@ -155,13 +159,13 @@ function LoginForm() {
                     </form>
                 </Card>
 
-                <div className="text-center mt-5">
-                    <Link href="/" className="text-xs font-semibold text-slate-400 hover:text-white">
+                <div className="mt-5 text-center">
+                    <Link href="/" className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white">
                         Voltar para página inicial
                     </Link>
                 </div>
 
-                <p className="text-center text-xs text-slate-500 mt-4">
+                <p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-500">
                     Sistema de Monitoramento de Voluntariado<br />
                     Gerenciado pela Equipe de Responsabilidade Social
                 </p>

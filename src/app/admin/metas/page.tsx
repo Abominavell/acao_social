@@ -95,8 +95,10 @@ export default function MetasPorSetorPage() {
                     const colab = insc.colaboradores as Colaborador | undefined;
                     if (!colab || colab.is_externo || !colab.setor_id) return;
                     if (!insc.confirmado_presenca) return;
-                    if (!byAcaoSetor[insc.acao_id]) byAcaoSetor[insc.acao_id] = {};
-                    byAcaoSetor[insc.acao_id][colab.setor_id] = (byAcaoSetor[insc.acao_id][colab.setor_id] || 0) + 1;
+                    const acaoId = insc.acao_id;
+                    if (!acaoId) return;
+                    if (!byAcaoSetor[acaoId]) byAcaoSetor[acaoId] = {};
+                    byAcaoSetor[acaoId][colab.setor_id] = (byAcaoSetor[acaoId][colab.setor_id] || 0) + 1;
                 });
 
                 setAcoes(acoesData);

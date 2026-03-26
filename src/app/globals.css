@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary: #2E7D32;
   --color-primary-light: #4CAF50;
@@ -809,16 +811,16 @@
   outline-offset: 2px;
 }
 
-/* Admin login input readability (typed text + autofill) */
-.admin-login-input {
+/* Admin login input readability (typed text + autofill) — apenas no tema escuro */
+.dark .admin-login-input {
   color: #e2e8f0;
   caret-color: #e2e8f0;
 }
 
-.admin-login-input:-webkit-autofill,
-.admin-login-input:-webkit-autofill:hover,
-.admin-login-input:-webkit-autofill:focus,
-.admin-login-input:-webkit-autofill:active {
+.dark .admin-login-input:-webkit-autofill,
+.dark .admin-login-input:-webkit-autofill:hover,
+.dark .admin-login-input:-webkit-autofill:focus,
+.dark .admin-login-input:-webkit-autofill:active {
   -webkit-text-fill-color: #e2e8f0;
   box-shadow: 0 0 0 1000px #020617 inset;
   transition: background-color 5000s ease-in-out 0s;

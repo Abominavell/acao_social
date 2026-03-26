@@ -681,7 +681,6 @@ export default function NovoProjetoAdminContent() {
 
     return (
         <WorkspaceShell
-            dark
             title="Painel de Administração"
             subtitle="Gerencie projetos, datas/horários e presenças."
             navItems={[

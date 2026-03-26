@@ -53,6 +53,8 @@ export interface Inscricao {
     projeto_id: string;
     data_projeto_id: string;
     colaborador_id: string;
+    /** Legado / respostas antigas da API */
+    acao_id?: string;
     confirmado_presenca: boolean;
     created_at: string;
     colaboradores?: Colaborador;

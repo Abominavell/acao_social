@@ -25,7 +25,7 @@ function EngagementHorizontalBar({ percent }: { percent: number }) {
     return (
         <div className="w-full">
             <div className="relative">
-                <div className="flex justify-between text-[10px] text-white/40 mb-2 px-1">
+                <div className="mb-2 flex justify-between px-1 text-[10px] text-slate-500 dark:text-white/40">
                     <span>0%</span>
                     <span>25%</span>
                     <span>50%</span>
@@ -33,27 +33,27 @@ function EngagementHorizontalBar({ percent }: { percent: number }) {
                     <span>100%</span>
                 </div>
 
-                <div className="h-4 rounded-full bg-white/10 overflow-hidden relative">
+                <div className="relative h-4 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
                     <div
                         className="h-full bg-gradient-to-r from-red-500 via-yellow-500 to-emerald-500 transition-all duration-700 ease-out"
                         style={{ width: `${p}%` }}
                     />
                     <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2" style={{ left: markerLeft }}>
-                        <div className="w-3.5 h-3.5 rounded-full bg-white shadow-[0_0_0_4px_rgba(255,255,255,0.08)]" />
+                        <div className="h-3.5 w-3.5 rounded-full bg-white shadow-[0_0_0_4px_rgba(148,163,184,0.28)] dark:shadow-[0_0_0_4px_rgba(255,255,255,0.08)]" />
                     </div>
                 </div>
 
                 <div
-                    className="absolute -top-2.5 -translate-x-1/2 pointer-events-none text-[10px] font-semibold text-white px-2 py-1 rounded-full"
-                    style={{ left: markerLeft, background: "rgba(17, 24, 39, 0.85)" }}
+                    className="pointer-events-none absolute -top-2.5 -translate-x-1/2 rounded-full bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white dark:bg-slate-900"
+                    style={{ left: markerLeft }}
                 >
                     {p}%
                 </div>
             </div>
 
             <div className="mt-3 flex items-center justify-between gap-3 text-sm">
-                <p className="text-white font-semibold">{label}</p>
-                <p className="text-white/60 text-xs">{p}% do objetivo</p>
+                <p className="font-semibold text-slate-900 dark:text-white">{label}</p>
+                <p className="text-xs text-slate-600 dark:text-white/60">{p}% do objetivo</p>
             </div>
         </div>
     );
@@ -440,7 +440,6 @@ export default function NovoDashboardContent() {
 
     return (
         <WorkspaceShell
-            dark
             title="Ranking de Compromisso Social"
             subtitle="Acompanhe o engajamento dos setores em tempo real."
             navItems={[
@@ -450,8 +449,8 @@ export default function NovoDashboardContent() {
             ]}
             rightSlot={
                 <div className="flex items-center gap-3">
-                    <div className="hidden items-center gap-1.5 text-accent text-xs md:flex">
-                        <span className="w-2 h-2 bg-accent rounded-full animate-pulse" />
+                    <div className="hidden items-center gap-1.5 text-xs text-emerald-700 dark:text-accent md:flex">
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500 dark:bg-accent" />
                         Atualizado: {lastUpdate.toLocaleTimeString("pt-BR")}
                     </div>
                     <Link href="/inscricao" className="btn btn-secondary text-xs py-2 px-3">
@@ -471,62 +470,62 @@ export default function NovoDashboardContent() {
                 />
 
                 {loading ? (
-                    <div className="text-center py-16 text-white/70">
+                    <div className="py-16 text-center text-slate-600 dark:text-white/70">
                         Carregando dados...
                     </div>
                 ) : (
                     <>
                         <DashboardKpiGrid statsValues={statsValues} />
 
-                        <div className="mt-2 mb-8 bg-white/10 border border-white/20 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-white/10">
-                                <h2 className="text-white font-bold">Meta Anual de Cobertura</h2>
-                                <p className="text-accent text-xs mt-1">Cada colaborador interno conta 1x no ano. Acompanhamento de ritmo mensal e trimestral.</p>
+                        <div className="mt-2 mb-8 overflow-hidden border border-slate-200 bg-white dark:border-white/20 dark:bg-white/10">
+                            <div className="border-b border-slate-200 px-6 py-4 dark:border-white/10">
+                                <h2 className="font-bold text-slate-900 dark:text-white">Meta Anual de Cobertura</h2>
+                                <p className="mt-1 text-xs text-emerald-700 dark:text-accent">Cada colaborador interno conta 1x no ano. Acompanhamento de ritmo mensal e trimestral.</p>
                             </div>
                             <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-3">
-                                <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-                                    <p className="text-accent text-xs uppercase tracking-wide font-semibold">Anual acumulado</p>
-                                    <p className="text-white text-2xl font-black mt-1">{data.annualUniqueConfirmed}/{data.annualTargetTotal}</p>
-                                    <p className="text-white/70 text-xs mt-2">{data.annualCoveragePercent}% da meta anual</p>
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-accent">Anual acumulado</p>
+                                    <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{data.annualUniqueConfirmed}/{data.annualTargetTotal}</p>
+                                    <p className="mt-2 text-xs text-slate-600 dark:text-white/70">{data.annualCoveragePercent}% da meta anual</p>
                                 </div>
-                                <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-                                    <p className="text-accent text-xs uppercase tracking-wide font-semibold">Mês atual</p>
-                                    <p className="text-white text-2xl font-black mt-1">{data.monthlyUniqueConfirmed}/{data.monthlyGoalTarget}</p>
-                                    <p className="text-white/70 text-xs mt-2">{data.monthlyGoalPercent}% do ritmo mensal</p>
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-accent">Mês atual</p>
+                                    <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{data.monthlyUniqueConfirmed}/{data.monthlyGoalTarget}</p>
+                                    <p className="mt-2 text-xs text-slate-600 dark:text-white/70">{data.monthlyGoalPercent}% do ritmo mensal</p>
                                 </div>
-                                <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-                                    <p className="text-accent text-xs uppercase tracking-wide font-semibold">Trimestre atual</p>
-                                    <p className="text-white text-2xl font-black mt-1">{data.quarterlyUniqueConfirmed}/{data.quarterlyGoalTarget}</p>
-                                    <p className="text-white/70 text-xs mt-2">{data.quarterlyGoalPercent}% do ritmo trimestral</p>
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-accent">Trimestre atual</p>
+                                    <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{data.quarterlyUniqueConfirmed}/{data.quarterlyGoalTarget}</p>
+                                    <p className="mt-2 text-xs text-slate-600 dark:text-white/70">{data.quarterlyGoalPercent}% do ritmo trimestral</p>
                                 </div>
-                                <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-                                    <p className="text-accent text-xs uppercase tracking-wide font-semibold">Faltantes no ano</p>
-                                    <p className="text-white text-2xl font-black mt-1">{Math.max(0, data.annualTargetTotal - data.annualUniqueConfirmed)}</p>
-                                    <p className="text-white/70 text-xs mt-2">colaboradores ainda sem participação</p>
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-accent">Faltantes no ano</p>
+                                    <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{Math.max(0, data.annualTargetTotal - data.annualUniqueConfirmed)}</p>
+                                    <p className="mt-2 text-xs text-slate-600 dark:text-white/70">colaboradores ainda sem participação</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="mt-8 bg-white/10 border border-white/20 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3">
-                                <h2 className="text-white font-bold text-lg">Engajamento do Instituto</h2>
-                                <div className="text-accent text-xs font-semibold">{data.institutionEngagementPercent}%</div>
+                        <div className="mt-8 overflow-hidden border border-slate-200 bg-white dark:border-white/20 dark:bg-white/10">
+                            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-6 py-4 dark:border-white/10">
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Engajamento do Instituto</h2>
+                                <div className="text-xs font-semibold text-emerald-700 dark:text-accent">{data.institutionEngagementPercent}%</div>
                             </div>
                             <div className="p-6">
                                 <div className="grid grid-cols-1 gap-6">
                                     <EngagementHorizontalBar percent={data.institutionEngagementPercent} />
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-                                            <p className="text-accent text-xs uppercase tracking-wide font-semibold">Confirmadas</p>
-                                            <p className="text-white text-2xl font-black mt-1">{data.institutionConfirmedTotal}</p>
+                                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-accent">Confirmadas</p>
+                                            <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{data.institutionConfirmedTotal}</p>
                                         </div>
-                                        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-                                            <p className="text-accent text-xs uppercase tracking-wide font-semibold">Meta anual</p>
-                                            <p className="text-white text-2xl font-black mt-1">{data.institutionMetaTotal}</p>
+                                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-accent">Meta anual</p>
+                                            <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{data.institutionMetaTotal}</p>
                                         </div>
-                                        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-                                            <p className="text-white text-sm">{data.institutionEngagementPercent}% do objetivo</p>
-                                            <p className="text-white/60 text-xs mt-2">Cobertura anual: confirmados únicos internos / total de colaboradores internos.</p>
+                                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                                            <p className="text-sm text-slate-900 dark:text-white">{data.institutionEngagementPercent}% do objetivo</p>
+                                            <p className="mt-2 text-xs text-slate-600 dark:text-white/60">Cobertura anual: confirmados únicos internos / total de colaboradores internos.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -535,8 +534,8 @@ export default function NovoDashboardContent() {
 
                         <DashboardRankingList ranking={data.ranking} />
 
-                        <div className="bg-white/5 border border-white/10 p-4 mt-8">
-                            <p className="text-xs text-accent/70 font-medium uppercase tracking-wider mb-3">
+                        <div className="mt-8 border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/5">
+                            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-emerald-700/80 dark:text-accent/70">
                                 Comparativo vs período anterior
                             </p>
                             <div className="grid grid-cols-2 gap-4">
@@ -546,8 +545,8 @@ export default function NovoDashboardContent() {
                                         {data.totalParticipacoes - data.previousParticipacoes}
                                     </div>
                                     <div>
-                                        <p className="text-white font-bold text-sm">participações</p>
-                                        <p className="text-xs font-semibold text-white/70">vs anterior</p>
+                                        <p className="text-sm font-bold text-slate-900 dark:text-white">participações</p>
+                                        <p className="text-xs font-semibold text-slate-600 dark:text-white/70">vs anterior</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -556,8 +555,8 @@ export default function NovoDashboardContent() {
                                         {data.ranking.filter((r) => r.participantes_unicos > 0).length - data.previousSetoresAtivos}
                                     </div>
                                     <div>
-                                        <p className="text-white font-bold text-sm">setores ativos</p>
-                                        <p className="text-xs font-semibold text-white/70">vs anterior</p>
+                                        <p className="text-sm font-bold text-slate-900 dark:text-white">setores ativos</p>
+                                        <p className="text-xs font-semibold text-slate-600 dark:text-white/70">vs anterior</p>
                                     </div>
                                 </div>
                             </div>
