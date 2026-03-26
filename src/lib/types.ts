@@ -6,11 +6,12 @@ export interface Setor {
 
 export interface Colaborador {
     id: string;
-    /** Null para voluntários externos criados sem setor. */
-    setor_id: string | null;
+    setor_id: string;
     nome: string;
-    whatsapp?: string | null;
+    cpf: string;
+    data_nascimento: string;
     is_externo: boolean;
+    ativo: boolean;
     created_at: string;
     /** Preenchido nas respostas aninhadas da API (equivalente ao join com setores). */
     setores?: { id: string; nome: string } | null;
@@ -27,14 +28,36 @@ export interface AcaoSocial {
     vagas_por_setor?: Record<string, number> | null;
 }
 
+export interface Projeto {
+    id: string;
+    titulo: string;
+    descricao: string | null;
+    vagas_limite: number;
+    ativo: boolean;
+    created_at: string;
+}
+
+export interface DataProjeto {
+    id: string;
+    projeto_id: string;
+    data_evento: string;
+    vagas_limite: number;
+    ativo: boolean;
+    created_at: string;
+    vagas_por_setor?: Record<string, number> | null;
+    projetos?: Projeto;
+}
+
 export interface Inscricao {
     id: string;
-    acao_id: string;
+    projeto_id: string;
+    data_projeto_id: string;
     colaborador_id: string;
     confirmado_presenca: boolean;
     created_at: string;
     colaboradores?: Colaborador;
-    acoes_sociais?: AcaoSocial;
+    projetos?: Projeto;
+    datas_projeto?: DataProjeto;
 }
 
 export interface RankingSetor {

@@ -1,10 +1,13 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
+// @ts-nocheck
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiJson, formatApiError, getStoredAccessToken } from "@/lib/api";
 import type { AcaoSocial, Colaborador, Inscricao, Setor } from "@/lib/types";
+import ProjetosMetasAdminContent from "./novo-projetos-metas-admin-content";
 
 function distribuirVagasProporcional(
     vagasLimite: number,
@@ -49,6 +52,7 @@ function formatDate(dateStr: string) {
 type InscricoesPorAcaoSetor = Record<string, Record<string, number>>;
 
 export default function MetasPorSetorPage() {
+    return <ProjetosMetasAdminContent />;
     const router = useRouter();
     const [acoes, setAcoes] = useState<AcaoSocial[]>([]);
     const [setores, setSetores] = useState<Setor[]>([]);
@@ -56,6 +60,11 @@ export default function MetasPorSetorPage() {
     const [inscricoesPorAcaoSetor, setInscricoesPorAcaoSetor] = useState<InscricoesPorAcaoSetor>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [query, setQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState<"todas" | "ativas" | "inativas">("todas");
+    const [periodFilter, setPeriodFilter] = useState<"todas" | "futuras" | "realizadas">("todas");
+    const [itemsPerPage, setItemsPerPage] = useState(5);
+    const [currentPage, setCurrentPage] = useState(1);
 
     useEffect(() => {
         if (!getStoredAccessToken()) {
@@ -85,6 +94,7 @@ export default function MetasPorSetorPage() {
                 inscricoesData.forEach((insc) => {
                     const colab = insc.colaboradores as Colaborador | undefined;
                     if (!colab || colab.is_externo || !colab.setor_id) return;
+                    if (!insc.confirmado_presenca) return;
                     if (!byAcaoSetor[insc.acao_id]) byAcaoSetor[insc.acao_id] = {};
                     byAcaoSetor[insc.acao_id][colab.setor_id] = (byAcaoSetor[insc.acao_id][colab.setor_id] || 0) + 1;
                 });
@@ -110,6 +120,35 @@ export default function MetasPorSetorPage() {
         });
         return map;
     }, [setores]);
+
+    const filteredAcoes = useMemo(() => {
+        const now = new Date();
+        const q = query.trim().toLowerCase();
+        return acoes.filter((acao) => {
+            if (statusFilter === "ativas" && !acao.ativo) return false;
+            if (statusFilter === "inativas" && acao.ativo) return false;
+
+            const dataEvento = new Date(acao.data_evento);
+            if (periodFilter === "futuras" && dataEvento < now) return false;
+            if (periodFilter === "realizadas" && dataEvento >= now) return false;
+
+            if (q) {
+                const haystack = `${acao.titulo} ${acao.descricao || ""}`.toLowerCase();
+                if (!haystack.includes(q)) return false;
+            }
+            return true;
+        });
+    }, [acoes, query, statusFilter, periodFilter]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredAcoes.length / itemsPerPage));
+    const safePage = Math.min(currentPage, totalPages);
+    const start = (safePage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const pagedAcoes = filteredAcoes.slice(start, end);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [query, statusFilter, periodFilter, itemsPerPage]);
 
     if (loading) {
         return (
@@ -137,8 +176,69 @@ export default function MetasPorSetorPage() {
                 </div>
             )}
 
+            <section className="card mb-4">
+                <div className="grid gap-3 md:grid-cols-4">
+                    <div className="md:col-span-2">
+                        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                            Buscar ação
+                        </label>
+                        <input
+                            className="input-field"
+                            placeholder="Ex.: mutirão, campanha..."
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                            Status
+                        </label>
+                        <select
+                            className="input-field"
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                        >
+                            <option value="todas">Todas</option>
+                            <option value="ativas">Ativas</option>
+                            <option value="inativas">Inativas</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                            Período
+                        </label>
+                        <select
+                            className="input-field"
+                            value={periodFilter}
+                            onChange={(e) => setPeriodFilter(e.target.value as typeof periodFilter)}
+                        >
+                            <option value="todas">Todas</option>
+                            <option value="futuras">Futuras</option>
+                            <option value="realizadas">Realizadas</option>
+                        </select>
+                    </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <p className="text-text-secondary">
+                        Exibindo <strong>{pagedAcoes.length}</strong> de <strong>{filteredAcoes.length}</strong> ações filtradas
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <label className="text-xs text-text-secondary">Itens por página</label>
+                        <select
+                            className="rounded border border-gray-200 bg-white px-2 py-1 text-sm"
+                            value={itemsPerPage}
+                            onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                        >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
             <div className="space-y-4">
-                {acoes.map((acao) => {
+                {pagedAcoes.map((acao) => {
                     const metas = (acao.vagas_por_setor && Object.keys(acao.vagas_por_setor).length > 0)
                         ? (acao.vagas_por_setor as Record<string, number>)
                         : distribuirVagasProporcional(acao.vagas_limite, setorInternalCounts);
@@ -147,6 +247,10 @@ export default function MetasPorSetorPage() {
                     const totalMeta = metasEntries.reduce((acc, [, v]) => acc + v, 0);
                     const totalInternosInscritos = metasEntries.reduce(
                         (acc, [setorId]) => acc + (inscricoesSetor[setorId] || 0),
+                        0,
+                    );
+                    const totalFuncionariosEmpresa = Object.values(setorInternalCounts).reduce(
+                        (acc, count) => acc + count,
                         0,
                     );
 
@@ -172,11 +276,11 @@ export default function MetasPorSetorPage() {
                                     <p className="text-text-primary font-bold">{totalMeta}</p>
                                 </div>
                                 <div className="rounded bg-gray-50 px-3 py-2">
-                                    <span className="text-text-secondary">Inscritos internos</span>
+                                    <span className="text-text-secondary">Presenças confirmadas</span>
                                     <p className="text-text-primary font-bold">{totalInternosInscritos}</p>
                                 </div>
                                 <div className="rounded bg-gray-50 px-3 py-2">
-                                    <span className="text-text-secondary">Atingimento geral</span>
+                                    <span className="text-text-secondary">Engajamento geral</span>
                                     <p className="text-text-primary font-bold">
                                         {totalMeta > 0 ? `${Math.min(100, Math.round((totalInternosInscritos / totalMeta) * 100))}%` : "0%"}
                                     </p>
@@ -192,9 +296,10 @@ export default function MetasPorSetorPage() {
                                             <tr className="border-b border-gray-100 text-left text-text-secondary">
                                                 <th className="py-2 pr-3">Setor</th>
                                                 <th className="py-2 pr-3">Internos no setor</th>
+                                                <th className="py-2 pr-3">% da empresa</th>
                                                 <th className="py-2 pr-3">Meta</th>
-                                                <th className="py-2 pr-3">Inscritos</th>
-                                                <th className="py-2">Atingimento</th>
+                                                <th className="py-2 pr-3">Confirmados</th>
+                                                <th className="py-2">Engajamento</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -203,10 +308,15 @@ export default function MetasPorSetorPage() {
                                                 .map(([setorId, meta]) => {
                                                     const inscritos = inscricoesSetor[setorId] || 0;
                                                     const pct = meta > 0 ? Math.min(100, Math.round((inscritos / meta) * 100)) : 0;
+                                                    const internosSetor = setorInternalCounts[setorId] || 0;
+                                                    const percentualEmpresa = totalFuncionariosEmpresa > 0
+                                                        ? (internosSetor / totalFuncionariosEmpresa) * 100
+                                                        : 0;
                                                     return (
                                                         <tr key={setorId} className="border-b border-gray-50">
                                                             <td className="py-2 pr-3 font-medium text-text-primary">{setorNome[setorId] || "Setor removido"}</td>
-                                                            <td className="py-2 pr-3">{setorInternalCounts[setorId] || 0}</td>
+                                                            <td className="py-2 pr-3">{internosSetor}</td>
+                                                            <td className="py-2 pr-3">{percentualEmpresa.toFixed(1)}%</td>
                                                             <td className="py-2 pr-3 font-semibold">{meta}</td>
                                                             <td className="py-2 pr-3">{inscritos}</td>
                                                             <td className="py-2">
@@ -231,12 +341,36 @@ export default function MetasPorSetorPage() {
                     );
                 })}
 
-                {acoes.length === 0 && (
+                {filteredAcoes.length === 0 && (
                     <div className="card text-sm text-text-secondary">
-                        Nenhuma ação cadastrada.
+                        Nenhuma ação encontrada com os filtros aplicados.
                     </div>
                 )}
             </div>
+
+            {filteredAcoes.length > 0 && (
+                <div className="mt-4 flex items-center justify-between rounded border border-gray-200 bg-white px-4 py-2 text-sm">
+                    <span className="text-text-secondary">
+                        Página {safePage} de {totalPages}
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            className="btn btn-outline text-xs"
+                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            disabled={safePage === 1}
+                        >
+                            Anterior
+                        </button>
+                        <button
+                            className="btn btn-outline text-xs"
+                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                            disabled={safePage === totalPages}
+                        >
+                            Próxima
+                        </button>
+                    </div>
+                </div>
+            )}
         </main>
     );
 }

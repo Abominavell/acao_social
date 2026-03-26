@@ -1,10 +1,12 @@
 "use client";
+// @ts-nocheck
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { apiJson } from "@/lib/api";
 import type { AcaoSocial, Colaborador, Inscricao, RankingSetor, Setor } from "@/lib/types";
+import NovoDashboardContent from "./novo-dashboard-content";
 
 /* ── SVG Icon Components ── */
 
@@ -62,18 +64,6 @@ function GlobeIcon() {
     );
 }
 
-function MedalIcon() {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15" />
-            <path d="M11 12 5.12 2.2" /><path d="m13 12 5.88-9.8" />
-            <path d="M8 7h8" />
-            <circle cx="12" cy="17" r="5" />
-            <path d="M12 18v-2h-.5" />
-        </svg>
-    );
-}
-
 function HeartHandshakeIcon() {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -103,14 +93,65 @@ function TrendDownIcon() {
     );
 }
 
+function EngagementHorizontalBar({ percent }: { percent: number }) {
+    const p = Math.max(0, Math.min(100, percent));
+    const markerLeft = `${p}%`;
+
+    const label =
+        p >= 100
+            ? "Meta atingida"
+            : p >= 75
+                ? "Muito bom"
+                : p >= 50
+                    ? "Em evolução"
+                    : "Atenção";
+
+    return (
+        <div className="w-full">
+            <div className="relative">
+                {/* Ticks 0..100 */}
+                <div className="flex justify-between text-[10px] text-white/40 mb-2 px-1">
+                    <span>0%</span>
+                    <span>25%</span>
+                    <span>50%</span>
+                    <span>75%</span>
+                    <span>100%</span>
+                </div>
+
+                {/* Barra */}
+                <div className="h-4 rounded-full bg-white/10 overflow-hidden relative">
+                    <div
+                        className="h-full bg-gradient-to-r from-red-500 via-yellow-500 to-emerald-500 transition-all duration-700 ease-out"
+                        style={{ width: `${p}%` }}
+                    />
+
+                    {/* Marcador */}
+                    <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2" style={{ left: markerLeft }}>
+                        <div className="w-3.5 h-3.5 rounded-full bg-white shadow-[0_0_0_4px_rgba(255,255,255,0.08)]" />
+                    </div>
+                </div>
+
+                {/* Tooltip do percentual */}
+                <div
+                    className="absolute -top-2.5 -translate-x-1/2 pointer-events-none text-[10px] font-semibold text-white px-2 py-1 rounded-full"
+                    style={{ left: markerLeft, background: "rgba(17, 24, 39, 0.85)" }}
+                >
+                    {p}%
+                </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                <p className="text-white font-semibold">{label}</p>
+                <p className="text-white/60 text-xs">{p}% do objetivo</p>
+            </div>
+        </div>
+    );
+}
+
 interface DashboardData {
     ranking: RankingSetor[];
-    rankingIndividual: {
-        colaborador_id: string;
-        colaborador_nome: string;
-        setor_nome: string;
-        participacoes_confirmadas: number;
-    }[];
+    institutionMetaTotal: number;
+    institutionConfirmedTotal: number;
+    institutionEngagementPercent: number;
     totalParticipacoes: number;
     totalExternos: number;
     totalInscricoesExternas: number;
@@ -122,20 +163,7 @@ interface DashboardData {
     previousSetoresAtivos: number;
 }
 
-const medalLabels = ["1º", "2º", "3º"];
-const medalColors = [
-    "from-yellow-400 to-amber-500",
-    "from-gray-300 to-gray-400",
-    "from-amber-600 to-amber-700",
-];
-const medalBadgeStyles = [
-    "bg-yellow-100 text-yellow-800 border border-yellow-300",
-    "bg-gray-100 text-gray-700 border border-gray-300",
-    "bg-amber-100 text-amber-800 border border-amber-300",
-];
-const podiumHeights = ["h-44", "h-36", "h-28"];
-const podiumOrder = [1, 0, 2];
-const medalEmojis = ["🥇", "🥈", "🥉"];
+// (Ranking por setor) sem emojis de medalha para manter UI mais limpa
 
 const statsConfig = [
     { label: "Participações Confirmadas", icon: CheckCircleIcon },
@@ -176,9 +204,12 @@ function distributeVagasProporcional(
 }
 
 export default function DashboardPage() {
+    return <NovoDashboardContent />;
     const [data, setData] = useState<DashboardData>({
         ranking: [],
-        rankingIndividual: [],
+        institutionMetaTotal: 0,
+        institutionConfirmedTotal: 0,
+        institutionEngagementPercent: 0,
         totalParticipacoes: 0,
         totalExternos: 0,
         totalInscricoesExternas: 0,
@@ -322,6 +353,9 @@ export default function DashboardPage() {
             });
         });
 
+        const institutionMetaTotal = Array.from(metaPorSetor.values()).reduce((sum, v) => sum + v, 0);
+        const institutionConfirmedTotal = Array.from(participacoesConfirmadasPorSetor.values()).reduce((sum, v) => sum + v, 0);
+
         const ranking: RankingSetor[] = setores
             .map((s) => {
                 const totalMembers = memberCount.get(s.id) || 1;
@@ -341,36 +375,10 @@ export default function DashboardPage() {
             })
             .sort((a, b) => b.taxa_engajamento - a.taxa_engajamento || b.participantes_unicos - a.participantes_unicos || b.total_membros - a.total_membros);
 
-        const rankingIndividualMap = new Map<string, {
-            colaborador_id: string;
-            colaborador_nome: string;
-            setor_nome: string;
-            participacoes_confirmadas: number;
-        }>();
-
-        inscricoes.forEach((insc) => {
-            const colab = insc.colaboradores as unknown as {
-                id: string;
-                nome: string;
-                setores?: { nome: string };
-            };
-            if (!colab?.id) return;
-            const prev = rankingIndividualMap.get(colab.id);
-            if (prev) {
-                prev.participacoes_confirmadas += 1;
-            } else {
-                rankingIndividualMap.set(colab.id, {
-                    colaborador_id: colab.id,
-                    colaborador_nome: colab.nome || "Sem nome",
-                    setor_nome: colab.setores?.nome || "—",
-                    participacoes_confirmadas: 1,
-                });
-            }
-        });
-
-        const rankingIndividual = Array.from(rankingIndividualMap.values())
-            .sort((a, b) => b.participacoes_confirmadas - a.participacoes_confirmadas)
-            .slice(0, 10);
+        const institutionEngagementPercentCalculated =
+            setores.length > 0
+                ? Math.min(100, Math.round(ranking.reduce((sum, item) => sum + item.taxa_engajamento, 0) / setores.length))
+                : 0;
 
         const inscricoesPorAcao = new Map<string, {
             total: number;
@@ -457,7 +465,9 @@ export default function DashboardPage() {
 
         setData({
             ranking,
-            rankingIndividual,
+            institutionMetaTotal,
+            institutionConfirmedTotal,
+            institutionEngagementPercent: institutionEngagementPercentCalculated,
             totalParticipacoes: inscricoes.length,
             totalExternos: externCount,
             totalInscricoesExternas: inscricoesExternas.length,
@@ -483,20 +493,7 @@ export default function DashboardPage() {
         return () => clearInterval(id);
     }, [fetchDashboardData]);
 
-    const top3 = data.ranking.slice(0, 3);
-
-    // Scroll reveal for Podium
-    const podiumRef = useRef<HTMLDivElement>(null);
-    const [podiumVisible, setPodiumVisible] = useState(false);
-
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            ([entry]) => { if (entry.isIntersecting) setPodiumVisible(true); },
-            { threshold: 0.2 }
-        );
-        if (podiumRef.current) observer.observe(podiumRef.current);
-        return () => observer.disconnect();
-    }, [loading]);
+    // (Seção de gráfico do engajamento do instituto - substitui o antigo podium)
 
     // Fullscreen toggle
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -725,67 +722,47 @@ export default function DashboardPage() {
 
 
 
-                        {/* Podium */}
-                        {top3.length > 0 && (
-                            <div className="mt-8" ref={podiumRef}>
-                                <h2 className="text-center text-white font-bold text-lg mb-6 flex items-center justify-center gap-2">
-                                    <MedalIcon />
-                                    {(() => {
-                                        const now = new Date();
-                                        if (periodo === "ano") return `Pódio do Ano`;
-
-                                        const m = periodo === "mes" ? now.getMonth() : selectedMonth;
-                                        const y = periodo === "mes" ? now.getFullYear() : selectedYear;
-                                        const date = new Date(y, m, 1);
-                                        const mName = date.toLocaleDateString("pt-BR", { month: "long" });
-                                        return `Pódio de ${mName.charAt(0).toUpperCase() + mName.slice(1)}`;
-                                    })()}
+                        {/* Engagement do Instituto (ao todo) */}
+                        <div className="mt-8 bg-white/10 border border-white/20 overflow-hidden">
+                            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3">
+                                <h2 className="text-white font-bold text-lg flex items-center gap-2">
+                                    <HeartHandshakeIcon />
+                                    Engajamento do Instituto
                                 </h2>
-                                <div className={`flex items-end justify-center gap-3 md:gap-6 max-w-2xl mx-auto transition-all duration-700 ${podiumVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
-                                    {podiumOrder.map((idx) => {
-                                        const item = top3[idx];
-                                        if (!item) return <div key={idx} className="flex-1" />;
-                                        return (
-                                            <div
-                                                key={item.setor_id}
-                                                className="flex-1 flex flex-col items-center animate-scale-in"
-                                                style={{ animationDelay: `${idx * 0.15}s` }}
-                                            >
-                                                {/* Medal Emoji */}
-                                                <span className="text-3xl mb-1">{medalEmojis[idx]}</span>
-                                                {/* Medal Badge */}
-                                                <span className={`text-sm font-black px-3 py-1 mb-2 ${medalBadgeStyles[idx]}`}>
-                                                    {medalLabels[idx]}
-                                                </span>
-                                                {/* Sector name */}
-                                                <p className="text-white font-bold text-xs md:text-sm text-center mb-2 line-clamp-2 min-h-[2.5rem]">
-                                                    {item.setor_nome}
-                                                </p>
-                                                {/* Podium bar */}
-                                                <div
-                                                    className={`w-full ${podiumHeights[idx]} bg-gradient-to-t ${medalColors[idx]} flex flex-col items-center justify-center p-2 shadow-lg`}
-                                                >
-                                                    <p className="text-2xl md:text-3xl font-black text-white">
-                                                        {item.participantes_unicos}
-                                                    </p>
-                                                    <p className="text-[10px] text-white/80 font-medium">
-                                                        confirmadas
-                                                    </p>
-                                                    <p className="text-[10px] text-white/60 mt-1">
-                                                        {item.taxa_engajamento}% da meta
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                <div className="text-accent text-xs font-semibold">
+                                    {data.institutionEngagementPercent}%
                                 </div>
                             </div>
-                        )}
+                            <div className="p-6">
+                                <div className="grid grid-cols-1 gap-6">
+                                    <EngagementHorizontalBar percent={data.institutionEngagementPercent} />
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                                            <p className="text-accent text-xs uppercase tracking-wide font-semibold">Confirmadas</p>
+                                            <p className="text-white text-2xl font-black mt-1">{data.institutionConfirmedTotal}</p>
+                                        </div>
+                                        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                                            <p className="text-accent text-xs uppercase tracking-wide font-semibold">Meta (proporcional)</p>
+                                            <p className="text-white text-2xl font-black mt-1">{data.institutionMetaTotal}</p>
+                                        </div>
+                                        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                                            <p className="text-white text-sm">
+                                                {data.institutionEngagementPercent}% do objetivo
+                                            </p>
+                                            <p className="text-white/60 text-xs mt-2">
+                                            Calculado como a média do engajamento (%) dos setores no período.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                         {/* Full Ranking List */}
                         <div className="mt-8 bg-white/10 border border-white/20 overflow-hidden">
                             <div className="px-6 py-4 border-b border-white/10">
-                                <h2 className="text-white font-bold">Ranking Completo por Setor</h2>
+                                <h2 className="text-white font-bold">Engajamento por Setor</h2>
                             </div>
                             <div className="divide-y divide-white/10">
                                 {data.ranking.map((item, i) => (
@@ -796,13 +773,9 @@ export default function DashboardPage() {
                                     >
                                         {/* Position */}
                                         <div className="w-8 text-center">
-                                            {i < 3 ? (
-                                                <span className="text-lg mr-1">{medalEmojis[i]}</span>
-                                            ) : (
-                                                <span className="text-white/50 font-bold text-sm">
-                                                    {i + 1}º
-                                                </span>
-                                            )}
+                                            <span className="text-white/50 font-bold text-sm">
+                                                {i + 1}º
+                                            </span>
                                         </div>
 
                                         {/* Name + badge */}
@@ -841,32 +814,6 @@ export default function DashboardPage() {
                             </div>
                         </div>
 
-                        <div className="mt-8 bg-white/10 border border-white/20 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-white/10">
-                                <h2 className="text-white font-bold">Ranking Individual (Top 10)</h2>
-                            </div>
-                            <div className="divide-y divide-white/10">
-                                {data.rankingIndividual.length === 0 ? (
-                                    <div className="px-6 py-4 text-white/60 text-sm">Sem dados de participação individual no período.</div>
-                                ) : (
-                                    data.rankingIndividual.map((item, i) => (
-                                        <div key={item.colaborador_id} className="px-6 py-4 flex items-center justify-between gap-4">
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <span className="text-accent font-black w-6 text-right">{i + 1}º</span>
-                                                <div className="min-w-0">
-                                                    <p className="text-white font-semibold truncate">{item.colaborador_nome}</p>
-                                                    <p className="text-accent text-xs truncate">{item.setor_nome}</p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-white font-black">{item.participacoes_confirmadas}</p>
-                                                <p className="text-accent text-[10px] uppercase">presenças</p>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
                     </>
                 )}
 

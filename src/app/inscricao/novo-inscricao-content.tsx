@@ -1,18 +1,14 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
-// @ts-nocheck
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import type { Colaborador, DataProjeto, Inscricao, Setor } from "@/lib/types";
 import { ApiError, apiJson, formatApiError } from "@/lib/api";
-import type { Setor, Colaborador, AcaoSocial, Inscricao } from "@/lib/types";
-import NovoInscricaoContent from "./novo-inscricao-content";
 
 type Step = 1 | 2 | 3 | 4;
-
-/* ── SVG Icons ── */
+const SEDE_AUTH_STORAGE_KEY = "monitoramento_sede_auth";
 
 function CheckIcon({ className = "" }: { className?: string }) {
     return (
@@ -22,32 +18,14 @@ function CheckIcon({ className = "" }: { className?: string }) {
     );
 }
 
-function CalendarIcon() {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M8 2v4" /><path d="M16 2v4" />
-            <rect width="18" height="18" x="3" y="4" rx="2" />
-            <path d="M3 10h18" />
-        </svg>
-    );
-}
-
 function HandshakeIcon() {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="m11 17 2 2a1 1 0 1 0 3-3" />
             <path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4" />
-            <path d="m21 3 1 11h-2" /><path d="M3 3 2 14h2" />
+            <path d="m21 3 1 11h-2" />
+            <path d="M3 3 2 14h2" />
             <path d="m7 18 2-2a1 1 0 0 0-3-3l-2.5 2.5a1 1 0 1 0 3 3" />
-        </svg>
-    );
-}
-
-function SuccessIcon() {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" />
-            <path d="m9 12 2 2 4-4" />
         </svg>
     );
 }
@@ -62,10 +40,11 @@ function BarChartIcon() {
     );
 }
 
-function FilterIcon() {
+function SuccessIcon() {
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <path d="m9 12 2 2 4-4" />
         </svg>
     );
 }
@@ -78,48 +57,48 @@ function formatDateShort(dateStr: string) {
     });
 }
 
-function formatDateFull(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString("pt-BR", {
-        weekday: "long",
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
+function formatDateTimeShort(dateStr: string) {
+    const d = new Date(dateStr);
+    const time = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    return `${formatDateShort(dateStr)} • ${time}`;
 }
 
-function getMonthLabel(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString("pt-BR", {
-        month: "long",
-        year: "numeric",
-    });
-}
-
-export default function InscricaoPage() {
-    return <NovoInscricaoContent />;
+export default function NovoInscricaoContent() {
+    const router = useRouter();
     const [step, setStep] = useState<Step>(1);
     const [setores, setSetores] = useState<Setor[]>([]);
     const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
-    const [acoes, setAcoes] = useState<AcaoSocial[]>([]);
+    const [datasProjetos, setDatasProjetos] = useState<DataProjeto[]>([]);
+
     const [selectedSetor, setSelectedSetor] = useState<string>("");
     const [selectedColaborador, setSelectedColaborador] = useState<string>("");
-    const [selectedAcao, setSelectedAcao] = useState<string>("");
+    const [selectedDataProjetoId, setSelectedDataProjetoId] = useState<string>("");
+
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [filterProject, setFilterProject] = useState<string>("all");
-    const [inscriptionCounts, setInscriptionCounts] = useState<Record<string, { total: number; bySector: Record<string, number> }>>({});
 
-    // External flow state
+    // Tipo (Sede/Externo)
     const [isExternoForm, setIsExternoForm] = useState(false);
+    const [sedeAuthNome, setSedeAuthNome] = useState<string>("");
+    const [sedeAuthenticated, setSedeAuthenticated] = useState(false);
+
+    // Externo form
     const [externoNome, setExternoNome] = useState("");
     const [externoUnidade, setExternoUnidade] = useState("");
     const [externoColabs, setExternoColabs] = useState<Colaborador[]>([]);
     const [showExternoList, setShowExternoList] = useState(false);
     const [externoLoading, setExternoLoading] = useState(false);
 
+    // Step 3 filters
+    const [filterProjectTitle, setFilterProjectTitle] = useState<string>("all");
+    const [existingDataByProjetoId, setExistingDataByProjetoId] = useState<Record<string, string>>({});
 
+    // Capacity stats
+    const [statsByDataTotal, setStatsByDataTotal] = useState<Record<string, number>>({});
+    const [statsByDataSetor, setStatsByDataSetor] = useState<Record<string, Record<string, number>>>({});
+
+    const nowIso = useMemo(() => new Date().toISOString(), []);
 
     async function fetchSetores() {
         try {
@@ -142,36 +121,6 @@ export default function InscricaoPage() {
         }
     }
 
-    async function fetchAcoes() {
-        try {
-            const now = new Date().toISOString();
-            const data = await apiJson<AcaoSocial[]>(
-                `acoes_sociais/?ativo=true&data_evento__gte=${encodeURIComponent(now)}&ordering=data_evento`,
-                { auth: false },
-            );
-            setAcoes(data);
-            const counts = await apiJson<Inscricao[]>("inscricoes/", { auth: false });
-            const countMap: Record<string, { total: number; bySector: Record<string, number> }> = {};
-            counts.forEach((row) => {
-                const acaoId = row.acao_id;
-                const colab = row.colaboradores as { setor_id: string | null } | undefined;
-                const setorId = colab?.setor_id;
-
-                if (!countMap[acaoId]) {
-                    countMap[acaoId] = { total: 0, bySector: {} };
-                }
-
-                countMap[acaoId].total += 1;
-                if (setorId) {
-                    countMap[acaoId].bySector[setorId] = (countMap[acaoId].bySector[setorId] || 0) + 1;
-                }
-            });
-            setInscriptionCounts(countMap);
-        } catch {
-            setAcoes([]);
-        }
-    }
-
     async function fetchExternoColabs() {
         try {
             const data = await apiJson<Colaborador[]>("colaboradores/?is_externo=true&ordering=nome", { auth: false });
@@ -181,28 +130,71 @@ export default function InscricaoPage() {
         }
     }
 
-    useEffect(() => {
-        fetchSetores();
-        fetchAcoes();
-    }, []);
+    async function fetchStep3Data() {
+        if (!selectedColaborador) return;
 
-    useEffect(() => {
-        if (isExternoForm) fetchExternoColabs();
-    }, [isExternoForm]);
+        setLoading(true);
+        setError(null);
 
-    useEffect(() => {
-        if (selectedSetor && selectedSetor !== "__show_selector__") {
-            fetchColaboradores(selectedSetor);
-            setSelectedColaborador("");
-            setStep(2);
+        try {
+            const now = new Date().toISOString();
+
+            const [datasData, statsInscData, existingInsc] = await Promise.all([
+                apiJson<DataProjeto[]>(
+                    `datas_projeto/?ativo=true&data_evento__gte=${encodeURIComponent(now)}&ordering=data_evento`,
+                    { auth: false },
+                ),
+                apiJson<Inscricao[]>(
+                    `inscricoes/?data_evento__gte=${encodeURIComponent(now)}&ordering=-created_at`,
+                    { auth: false },
+                ),
+                apiJson<Inscricao[]>(`inscricoes/?colaborador_id=${encodeURIComponent(selectedColaborador)}&ordering=-created_at`, { auth: false }),
+            ]);
+
+            const datasAtivas = datasData.filter((d) => d.ativo && d.projetos?.ativo);
+            setDatasProjetos(datasAtivas);
+
+            // capacity stats from future datas
+            const total: Record<string, number> = {};
+            const bySector: Record<string, Record<string, number>> = {};
+
+            statsInscData.forEach((insc) => {
+                const dataId = insc.data_projeto_id;
+                total[dataId] = (total[dataId] || 0) + 1;
+
+                const colab = insc.colaboradores as Colaborador | undefined;
+                if (!colab || colab.is_externo || !colab.setor_id) return;
+                if (!bySector[dataId]) bySector[dataId] = {};
+                bySector[dataId][colab.setor_id] = (bySector[dataId][colab.setor_id] || 0) + 1;
+            });
+
+            setStatsByDataTotal(total);
+            setStatsByDataSetor(bySector);
+
+            // duplication map: 1 inscrição por PROJETO
+            const map: Record<string, string> = {};
+            existingInsc.forEach((insc) => {
+                const projetoId = insc.projeto_id;
+                const dataId = insc.data_projeto_id;
+                if (projetoId && dataId) map[projetoId] = dataId;
+            });
+            setExistingDataByProjetoId(map);
+
+            setSelectedDataProjetoId("");
+        } catch (e) {
+            console.error(e);
+            setError("Erro ao carregar datas do projeto.");
+        } finally {
+            setLoading(false);
         }
-    }, [selectedSetor]);
+    }
 
     async function handleRegisterExterno() {
         if (!externoNome || !externoUnidade) {
             setError("Preencha seu nome e instituição/unidade.");
             return;
         }
+
         setExternoLoading(true);
         setError(null);
 
@@ -235,10 +227,8 @@ export default function InscricaoPage() {
         }
 
         setExternoLoading(false);
-
         setSelectedColaborador(extColab.id);
         setStep(3);
-        await fetchExternoColabs();
     }
 
     function handleSelectExternoReturning(colabId: string) {
@@ -247,91 +237,155 @@ export default function InscricaoPage() {
     }
 
     async function handleInscrever() {
-        if (!selectedAcao || !selectedColaborador) return;
+        if (!selectedColaborador || !selectedDataProjetoId) return;
 
         setLoading(true);
         setError(null);
 
         try {
+            const selectedData = datasProjetos.find((d) => d.id === selectedDataProjetoId);
+            if (!selectedData?.projetos?.id) throw new Error("Data/projeto inválido.");
+
+            const existingDataId = existingDataByProjetoId[selectedData.projetos.id];
+            if (existingDataId && existingDataId === selectedData.id) {
+                setError("Você já está inscrito neste projeto.");
+                return;
+            }
+
             await apiJson<Inscricao>("inscricoes/", {
                 method: "POST",
                 body: JSON.stringify({
-                    acao_id: selectedAcao,
+                    projeto_id: selectedData.projetos.id,
+                    data_projeto_id: selectedData.id,
                     colaborador_id: selectedColaborador,
                     confirmado_presenca: false,
                 }),
                 auth: false,
             });
+
             setSuccess(true);
             setStep(4);
         } catch (e) {
             if (e instanceof ApiError && e.status === 400) {
-                const body = e.body as Record<string, unknown>;
-                const msg = JSON.stringify(body);
-                if (msg.includes("duplicad") || msg.includes("Inscrição")) {
-                    setError("Você já está inscrito nesta ação social!");
+                const msg = JSON.stringify(e.body);
+                if (msg.toLowerCase().includes("duplicada") || msg.toLowerCase().includes("inscri")) {
+                    setError("Você já está inscrito neste projeto.");
                 } else {
                     setError(formatApiError(e));
                 }
             } else {
                 setError("Erro ao realizar inscrição. Tente novamente.");
             }
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     }
 
     function resetForm() {
         setStep(1);
         setSelectedSetor("");
         setSelectedColaborador("");
-        setSelectedAcao("");
+        setSelectedDataProjetoId("");
         setSuccess(false);
         setError(null);
-        setFilterProject("all");
         setIsExternoForm(false);
         setExternoNome("");
         setExternoUnidade("");
         setShowExternoList(false);
         setExternoLoading(false);
+        setFilterProjectTitle("all");
+        setExistingDataByProjetoId({});
+        setStatsByDataTotal({});
+        setStatsByDataSetor({});
+        setDatasProjetos([]);
+        setColaboradores([]);
+        setSedeAuthNome("");
+        setSedeAuthenticated(false);
+        if (typeof window !== "undefined") {
+            window.sessionStorage.removeItem(SEDE_AUTH_STORAGE_KEY);
+        }
     }
 
-    // Derive unique project names for filter tabs
-    const projectNames = useMemo(() => {
-        const names = new Set(acoes.map((a) => a.titulo));
-        return Array.from(names).sort();
-    }, [acoes]);
+    // initial load
+    useEffect(() => {
+        fetchSetores();
+        if (typeof window !== "undefined") {
+            const raw = window.sessionStorage.getItem(SEDE_AUTH_STORAGE_KEY);
+            if (raw) {
+                try {
+                    const authData = JSON.parse(raw) as { colaborador_id: string; setor_id: string; nome: string };
+                    if (authData?.colaborador_id && authData?.setor_id) {
+                        setSelectedColaborador(authData.colaborador_id);
+                        setSelectedSetor(authData.setor_id);
+                        setSedeAuthNome(authData.nome || "");
+                        setSedeAuthenticated(true);
+                        setIsExternoForm(false);
+                        setStep(3);
+                    }
+                } catch {
+                    window.sessionStorage.removeItem(SEDE_AUTH_STORAGE_KEY);
+                }
+            }
+        }
+    }, []);
 
-    // Filter and group actions by month
-    const filteredAcoes = useMemo(() => {
-        if (filterProject === "all") return acoes;
-        return acoes.filter((a) => a.titulo === filterProject);
-    }, [acoes, filterProject]);
+    useEffect(() => {
+        if (isExternoForm) fetchExternoColabs();
+    }, [isExternoForm]);
+
+    useEffect(() => {
+        if (selectedSetor && selectedSetor !== "__show_selector__") {
+            if (sedeAuthenticated) return;
+            fetchColaboradores(selectedSetor);
+            setSelectedColaborador("");
+            setStep(2);
+        }
+    }, [selectedSetor, sedeAuthenticated]);
+
+    // Step 3 load
+    useEffect(() => {
+        if (step >= 3 && !success && selectedColaborador) {
+            fetchStep3Data();
+        }
+    }, [step, selectedColaborador, success]);
+
+    const projectNames = useMemo(() => {
+        const names = new Set(datasProjetos.map((d) => d.projetos?.titulo).filter(Boolean) as string[]);
+        return Array.from(names).sort();
+    }, [datasProjetos]);
+
+    const filteredDatas = useMemo(() => {
+        if (filterProjectTitle === "all") return datasProjetos;
+        return datasProjetos.filter((d) => d.projetos?.titulo === filterProjectTitle);
+    }, [datasProjetos, filterProjectTitle]);
 
     const groupedByMonth = useMemo(() => {
-        const groups: { label: string; items: AcaoSocial[] }[] = [];
+        const groups: { label: string; items: DataProjeto[] }[] = [];
         let currentMonth = "";
 
-        filteredAcoes.forEach((acao) => {
-            const month = getMonthLabel(acao.data_evento);
+        filteredDatas.forEach((data) => {
+            const month = new Date(data.data_evento).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
             if (month !== currentMonth) {
                 currentMonth = month;
                 groups.push({ label: month, items: [] });
             }
-            groups[groups.length - 1].items.push(acao);
+            groups[groups.length - 1].items.push(data);
         });
 
         return groups;
-    }, [filteredAcoes]);
+    }, [filteredDatas]);
 
-    const selectedAcaoData = acoes.find((a) => a.id === selectedAcao);
-    const stepLabels = ["Setor", "Colaborador", "Ação", "Confirmação"];
+    const selectedData = datasProjetos.find((d) => d.id === selectedDataProjetoId);
+    const selectedProjetoTitulo = selectedData?.projetos?.titulo || "";
+    const selectedIsAlreadyInscrito =
+        !!selectedData?.projetos?.id && existingDataByProjetoId[selectedData.projetos.id] === selectedData.id;
+
+    const stepLabels = ["Setor", "Colaborador", "Projeto", "Confirmação"];
 
     return (
         <div className="min-h-screen bg-background">
-            {/* Header */}
             <header className="header-institutional">
-                <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
+                <div className="w-[92vw] max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2" aria-label="Voltar para início">
                         <div className="bg-white/90 px-3 py-1.5 rounded-sm">
                             <Image src="/logo.svg" alt="Logo IADVh" width={120} height={44} className="h-8 w-auto" priority />
@@ -340,8 +394,7 @@ export default function InscricaoPage() {
                 </div>
             </header>
 
-            <main className="max-w-lg mx-auto px-4 py-6 pb-28">
-                {/* Progress Steps */}
+            <main className="w-[92vw] max-w-[1400px] mx-auto px-4 py-6 pb-28">
                 <div className="flex items-center justify-between mb-8">
                     {stepLabels.map((label, i) => {
                         const stepNum = (i + 1) as Step;
@@ -352,40 +405,32 @@ export default function InscricaoPage() {
                                 <div className={`w-8 h-8 flex items-center justify-center text-sm font-bold transition-all duration-300 ${isCurrent ? "bg-primary text-white scale-110 shadow-lg" : isActive ? "bg-primary-light text-white" : "bg-gray-200 text-text-secondary"}`}>
                                     {isActive && stepNum < step ? <CheckIcon /> : stepNum}
                                 </div>
-                                <span className={`text-xs mt-1 font-medium ${isCurrent ? "text-primary" : "text-text-secondary"}`}>
-                                    {label}
-                                </span>
+                                <span className={`text-xs mt-1 font-medium ${isCurrent ? "text-primary" : "text-text-secondary"}`}>{label}</span>
                             </div>
                         );
                     })}
                 </div>
 
-                {/* Step 1: Escolha tipo — Sede ou Externo */}
+                {/* Step 1 */}
                 {step >= 1 && !success && !isExternoForm && !selectedSetor && (
                     <div className="card mb-4 animate-fade-in-up">
-                        <label className="block text-sm font-semibold text-text-primary mb-3">
-                            1. Você é colaborador da Sede ou Externo a sede?
-                        </label>
+                        <label className="block text-sm font-semibold text-text-primary mb-3">1. Você é colaborador da Sede ou Externo a sede?</label>
                         <div className="grid grid-cols-2 gap-3">
                             <button
                                 type="button"
                                 className="flex flex-col items-center gap-2 p-4 border-2 border-gray-200 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-center"
                                 onClick={() => {
-                                    setIsExternoForm(false);
-                                    // Show sector selector by setting a placeholder
-                                    setSelectedSetor("__show_selector__");
+                                    router.push("/inscricao/login");
                                 }}
                             >
-                                <span className="text-2xl"></span>
                                 <span className="text-sm font-semibold text-text-primary">Colaborador da Sede</span>
-                                <span className="text-xs text-text-secondary">Trabalho na sede do IADVH</span>
+                                <span className="text-xs text-text-secondary">Entrar com CPF e data de nascimento</span>
                             </button>
                             <button
                                 type="button"
                                 className="flex flex-col items-center gap-2 p-4 border-2 border-gray-200 rounded-lg hover:border-accent hover:bg-accent/5 transition-all text-center"
                                 onClick={() => setIsExternoForm(true)}
                             >
-                                <span className="text-2xl"></span>
                                 <span className="text-sm font-semibold text-text-primary">Colaborador Filial</span>
                                 <span className="text-xs text-text-secondary">Sou colaborador mas nao atuo na sede</span>
                             </button>
@@ -393,16 +438,35 @@ export default function InscricaoPage() {
                     </div>
                 )}
 
-                {/* Step 1b: Sede — Setor Selector */}
+                {!isExternoForm && step >= 3 && sedeAuthNome && (
+                    <div className="card mb-4 animate-fade-in-up">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <label className="block text-xs text-text-secondary">Colaborador da sede autenticado</label>
+                                <span className="text-sm font-semibold text-text-primary">{sedeAuthNome}</span>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    if (typeof window !== "undefined") {
+                                        window.sessionStorage.removeItem(SEDE_AUTH_STORAGE_KEY);
+                                    }
+                                    setSedeAuthenticated(false);
+                                    router.push("/inscricao/login");
+                                }}
+                                className="text-xs text-text-secondary hover:text-primary underline"
+                            >
+                                Trocar login
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 1b: Sede */}
                 {step >= 1 && !success && !isExternoForm && selectedSetor === "__show_selector__" && (
                     <div className="card mb-4 animate-fade-in-up">
                         <div className="flex items-center justify-between mb-2">
-                            <label className="block text-sm font-semibold text-text-primary">
-                                1. Selecione seu setor
-                            </label>
-                            <button onClick={resetForm} className="text-xs text-text-secondary hover:text-primary underline">
-                                Voltar
-                            </button>
+                            <label className="block text-sm font-semibold text-text-primary">1. Selecione seu setor</label>
+                            <button onClick={resetForm} className="text-xs text-text-secondary hover:text-primary underline">Voltar</button>
                         </div>
                         <select className="input-field" value="" onChange={(e) => setSelectedSetor(e.target.value)}>
                             <option value="">Escolha seu setor...</option>
@@ -413,19 +477,16 @@ export default function InscricaoPage() {
                     </div>
                 )}
 
-                {/* Step 1b (selected): Show selected setor */}
                 {step >= 1 && !success && !isExternoForm && selectedSetor && selectedSetor !== "__show_selector__" && (
                     <div className="card mb-4 animate-fade-in-up">
                         <div className="flex items-center justify-between">
                             <div>
                                 <label className="block text-xs text-text-secondary">Setor</label>
-                                <span className="text-sm font-semibold text-text-primary">
-                                    {setores.find(s => s.id === selectedSetor)?.nome}
-                                </span>
+                                <span className="text-sm font-semibold text-text-primary">{setores.find((s) => s.id === selectedSetor)?.nome}</span>
                             </div>
-                            <button onClick={resetForm} className="text-xs text-text-secondary hover:text-primary underline">
-                                Alterar
-                            </button>
+                            {!sedeAuthenticated && (
+                                <button onClick={resetForm} className="text-xs text-text-secondary hover:text-primary underline">Alterar</button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -434,31 +495,26 @@ export default function InscricaoPage() {
                 {isExternoForm && !success && step < 3 && (
                     <div className="card mb-4 animate-fade-in-up border-l-4 border-l-accent">
                         <div className="flex items-center justify-between mb-3">
-                            <label className="block text-sm font-semibold text-text-primary">
-                                1. Cadastro de Colaborador Filial
-                            </label>
-                            <button onClick={resetForm} className="text-xs text-text-secondary hover:text-primary underline">
-                                Voltar
-                            </button>
+                            <label className="block text-sm font-semibold text-text-primary">1. Cadastro de Colaborador Filial</label>
+                            <button onClick={resetForm} className="text-xs text-text-secondary hover:text-primary underline">Voltar</button>
                         </div>
+
                         <div className="space-y-3">
                             <input
                                 type="text"
                                 placeholder="Seu nome completo"
                                 className="input-field"
                                 value={externoNome}
-                                onChange={e => setExternoNome(e.target.value)}
+                                onChange={(e) => setExternoNome(e.target.value)}
                             />
                             <input
                                 type="text"
                                 placeholder="Filial / Unidade"
                                 className="input-field"
                                 value={externoUnidade}
-                                onChange={e => setExternoUnidade(e.target.value)}
+                                onChange={(e) => setExternoUnidade(e.target.value)}
                             />
-                            {error && (
-                                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-xs rounded">{error}</div>
-                            )}
+                            {error && <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-xs rounded">{error}</div>}
                             <button
                                 className="btn btn-primary w-full"
                                 onClick={handleRegisterExterno}
@@ -467,7 +523,6 @@ export default function InscricaoPage() {
                                 {externoLoading ? "Registrando..." : "Continuar"}
                             </button>
 
-                            {/* Returning volunteer drawer */}
                             {externoColabs.length > 0 && (
                                 <div className="border-t border-gray-100 pt-3 mt-2">
                                     <button
@@ -477,14 +532,11 @@ export default function InscricaoPage() {
                                     >
                                         {showExternoList ? "▲ Fechar lista" : "▼ Já me cadastrei antes"}
                                     </button>
+
                                     {showExternoList && (
-                                        <select
-                                            className="input-field mt-2"
-                                            value=""
-                                            onChange={e => handleSelectExternoReturning(e.target.value)}
-                                        >
+                                        <select className="input-field mt-2" value="" onChange={(e) => handleSelectExternoReturning(e.target.value)}>
                                             <option value="">Selecione seu nome...</option>
-                                            {externoColabs.map(c => (
+                                            {externoColabs.map((c) => (
                                                 <option key={c.id} value={c.id}>{c.nome}</option>
                                             ))}
                                         </select>
@@ -495,30 +547,18 @@ export default function InscricaoPage() {
                     </div>
                 )}
 
-                {/* Externo: Show selected collaborator summary when step >= 3 */}
-                {isExternoForm && !success && step >= 3 && selectedColaborador && (
-                    <div className="card mb-4 animate-fade-in-up border-l-4 border-l-accent">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <label className="block text-xs text-text-secondary">Colaborador Filial</label>
-                                <span className="text-sm font-semibold text-text-primary">
-                                    {externoColabs.find(c => c.id === selectedColaborador)?.nome || `${externoNome} (${externoUnidade})`}
-                                </span>
-                            </div>
-                            <button onClick={resetForm} className="text-xs text-text-secondary hover:text-primary underline">
-                                Alterar
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Step 2: Colaborador (only for sede flow) */}
-                {step >= 2 && !success && !isExternoForm && (
+                {/* Step 2: Colaborador (Sede) */}
+                {step >= 2 && !success && !isExternoForm && !sedeAuthNome && (
                     <div className="card mb-4 animate-fade-in-up">
-                        <label className="block text-sm font-semibold text-text-primary mb-2">
-                            2. Identifique-se
-                        </label>
-                        <select className="input-field" value={selectedColaborador} onChange={(e) => { setSelectedColaborador(e.target.value); if (e.target.value) setStep(3); }}>
+                        <label className="block text-sm font-semibold text-text-primary mb-2">2. Identifique-se</label>
+                        <select
+                            className="input-field"
+                            value={selectedColaborador}
+                            onChange={(e) => {
+                                setSelectedColaborador(e.target.value);
+                                if (e.target.value) setStep(3);
+                            }}
+                        >
                             <option value="">Selecione seu nome...</option>
                             {colaboradores.map((c) => (
                                 <option key={c.id} value={c.id}>{c.nome}</option>
@@ -527,35 +567,24 @@ export default function InscricaoPage() {
                     </div>
                 )}
 
-                {/* Step 3: Ação Social */}
+                {/* Step 3: Projeto + Data */}
                 {step >= 3 && !success && (
                     <div className="animate-fade-in-up">
-                        <h3 className="text-sm font-semibold text-text-primary mb-3">
-                            {isExternoForm ? "2" : "3"}. Escolha uma Ação Social
-                        </h3>
+                        <h3 className="text-sm font-semibold text-text-primary mb-3">3. Escolha um Projeto e uma Data</h3>
 
-                        {/* Filter Tabs */}
                         {projectNames.length > 1 && (
                             <div className="mb-4">
                                 <div className="flex items-center gap-1.5 text-xs text-text-secondary mb-2">
-                                    <FilterIcon />
                                     <span className="font-medium">Filtrar por projeto:</span>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                    <button
-                                        onClick={() => setFilterProject("all")}
-                                        className={`filter-tab ${filterProject === "all" ? "filter-tab-active" : ""}`}
-                                    >
-                                        Todos ({acoes.length})
+                                    <button onClick={() => setFilterProjectTitle("all")} className={`filter-tab ${filterProjectTitle === "all" ? "filter-tab-active" : ""}`}>
+                                        Todos ({datasProjetos.length})
                                     </button>
                                     {projectNames.map((name) => {
-                                        const count = acoes.filter((a) => a.titulo === name).length;
+                                        const count = datasProjetos.filter((d) => d.projetos?.titulo === name).length;
                                         return (
-                                            <button
-                                                key={name}
-                                                onClick={() => setFilterProject(name)}
-                                                className={`filter-tab ${filterProject === name ? "filter-tab-active" : ""}`}
-                                            >
+                                            <button key={name} onClick={() => setFilterProjectTitle(name)} className={`filter-tab ${filterProjectTitle === name ? "filter-tab-active" : ""}`}>
                                                 {name} ({count})
                                             </button>
                                         );
@@ -564,87 +593,89 @@ export default function InscricaoPage() {
                             </div>
                         )}
 
-                        {filteredAcoes.length === 0 ? (
+                        {loading && datasProjetos.length === 0 ? (
                             <div className="card text-center py-8">
-                                <p className="text-text-secondary">
-                                    Nenhuma ação social disponível no momento.
-                                </p>
+                                <p className="text-text-secondary">Carregando datas...</p>
+                            </div>
+                        ) : filteredDatas.length === 0 ? (
+                            <div className="card text-center py-8">
+                                <p className="text-text-secondary">Nenhuma data disponível no momento.</p>
                             </div>
                         ) : (
                             <div className="space-y-4">
                                 {groupedByMonth.map((group) => (
                                     <div key={group.label}>
-                                        <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2 sticky top-16 bg-background py-1 z-10 capitalize">
+                                        <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2 sticky top-16 bg-background py-1 z-10">
                                             {group.label}
                                         </h4>
                                         <div className="space-y-2">
-                                            {group.items.map((acao) => {
-                                                const stats = inscriptionCounts[acao.id] || { total: 0, bySector: {} };
+                                            {group.items.map((data) => {
+                                                const projectId = data.projetos?.id || "";
+                                                const existingDataId = existingDataByProjetoId[projectId];
 
-                                                // Calculate active limit
-                                                let limit = acao.vagas_limite;
-                                                let inscritos = stats.total;
-                                                let isSectorLimit = false;
+                                                const isSelectedExisting = existingDataId && existingDataId === data.id;
 
-                                                if (!isExternoForm && selectedSetor && acao.vagas_por_setor && typeof acao.vagas_por_setor[selectedSetor] === 'number') {
-                                                    limit = acao.vagas_por_setor[selectedSetor];
-                                                    inscritos = stats.bySector[selectedSetor] || 0;
-                                                    isSectorLimit = true;
+                                                // Capacity
+                                                let limit = data.vagas_limite;
+                                                let inscritos = statsByDataTotal[data.id] || 0;
+
+                                                if (!isExternoForm && selectedSetor && data.vagas_por_setor && typeof data.vagas_por_setor[selectedSetor] === "number") {
+                                                    limit = data.vagas_por_setor[selectedSetor];
+                                                    inscritos = statsByDataSetor[data.id]?.[selectedSetor] || 0;
                                                 }
 
                                                 const vagasRestantes = limit - inscritos;
                                                 const esgotado = vagasRestantes <= 0;
 
-                                                const formatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                                                const timeString = formatter.format(new Date(acao.data_evento));
+                                                const disabledByDuplicate = !!existingDataId && existingDataId !== data.id;
+                                                const disabled = disabledByDuplicate || (esgotado && !isSelectedExisting);
+
+                                                const badgeText = disabledByDuplicate
+                                                    ? "Já inscrito neste projeto"
+                                                    : isSelectedExisting
+                                                        ? "Sua inscrição"
+                                                        : esgotado
+                                                            ? "Esgotado"
+                                                            : `${vagasRestantes} vaga${vagasRestantes !== 1 ? "s" : ""} restante`;
 
                                                 return (
                                                     <button
-                                                        key={acao.id}
-                                                        onClick={() => !esgotado && setSelectedAcao(acao.id)}
-                                                        disabled={esgotado}
-                                                        className={`w-full text-left flex items-start gap-3 p-3 transition-all border ${esgotado
-                                                            ? "bg-gray-50 border-transparent opacity-60 cursor-not-allowed"
-                                                            : selectedAcao === acao.id
+                                                        key={data.id}
+                                                        disabled={disabled}
+                                                        onClick={() => !disabled && setSelectedDataProjetoId(data.id)}
+                                                        className={`w-full text-left flex items-start gap-3 p-3 transition-all border ${
+                                                            selectedDataProjetoId === data.id
                                                                 ? "bg-green-50 border-primary ring-1 ring-primary cursor-pointer"
-                                                                : "bg-surface border-transparent hover:bg-gray-50 cursor-pointer"
-                                                            }`}
+                                                                : disabled
+                                                                    ? "bg-gray-50 border-transparent opacity-60 cursor-not-allowed"
+                                                                    : "bg-surface border-transparent hover:bg-gray-50 cursor-pointer"
+                                                        }`}
                                                     >
-                                                        {/* Date & Time Badge */}
-                                                        <div className={`flex flex-col flex-shrink-0 w-16 text-center rounded overflow-hidden shadow-sm ${selectedAcao === acao.id ? "bg-primary text-white" : "bg-gray-100 text-text-secondary"}`}>
+                                                        <div className={`flex flex-col flex-shrink-0 w-16 text-center rounded overflow-hidden shadow-sm ${selectedDataProjetoId === data.id ? "bg-primary text-white" : "bg-gray-100 text-text-secondary"}`}>
                                                             <div className="py-1.5 text-xs font-bold border-b border-black/10">
-                                                                {formatDateShort(acao.data_evento)}
+                                                                {formatDateShort(data.data_evento)}
                                                             </div>
-                                                            <div className={`py-1 text-[10px] font-medium ${selectedAcao === acao.id ? "bg-primary-dark" : "bg-gray-200"}`}>
-                                                                {timeString}
+                                                            <div className={`py-1 text-[10px] font-medium ${selectedDataProjetoId === data.id ? "bg-primary-dark" : "bg-gray-200"}`}>
+                                                                {new Date(data.data_evento).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                                                             </div>
                                                         </div>
 
-                                                        {/* Title + Desc + Vacancy */}
                                                         <div className="flex-1 min-w-0 pt-0.5">
                                                             <span className="font-semibold text-sm text-text-primary leading-tight mb-1 block">
-                                                                {acao.titulo}
+                                                                {data.projetos?.titulo || "Projeto"}
                                                             </span>
-                                                            {acao.descricao && (
-                                                                <span className={`text-xs text-text-secondary mb-2 leading-relaxed ${selectedAcao === acao.id ? "" : "line-clamp-2"}`}>
-                                                                    {acao.descricao}
-                                                                </span>
-                                                            )}
-                                                            <div className={`text-[11px] inline-flex items-center px-1.5 py-0.5 rounded ${esgotado ? "bg-red-50 text-error font-semibold" : "bg-primary/5 text-primary font-medium"}`}>
-                                                                {esgotado ? "Esgotado" : `${vagasRestantes} vaga${vagasRestantes !== 1 ? "s" : ""} restante${vagasRestantes !== 1 ? "s" : ""}`}
-                                                                {isSectorLimit && !esgotado && " (p/ seu setor)"}
-                                                                {isSectorLimit && esgotado && " p/ seu setor"}
+
+                                                            <div className={`text-[11px] inline-flex items-center px-1.5 py-0.5 rounded ${
+                                                                disabledByDuplicate || isSelectedExisting
+                                                                    ? "bg-amber-50 text-amber-700 font-semibold"
+                                                                    : esgotado
+                                                                        ? "bg-red-50 text-error font-semibold"
+                                                                        : "bg-primary/5 text-primary font-medium"
+                                                            }`}
+                                                            >
+                                                                {badgeText}
                                                             </div>
                                                         </div>
-
-                                                        {/* Check or Esgotado badge */}
-                                                        {esgotado ? (
-                                                            <span className="badge bg-red-100 text-error text-[10px] flex-shrink-0 mt-1">Lotado</span>
-                                                        ) : selectedAcao === acao.id ? (
-                                                            <div className="w-6 h-6 bg-primary flex items-center justify-center flex-shrink-0 mt-1 rounded-full">
-                                                                <CheckIcon className="text-white" />
-                                                            </div>
-                                                        ) : null}
                                                     </button>
                                                 );
                                             })}
@@ -656,16 +687,14 @@ export default function InscricaoPage() {
                     </div>
                 )}
 
-                {/* Step 4: Success */}
+                {/* Step 4 success */}
                 {success && (
                     <div className="card text-center py-10 animate-scale-in">
                         <div className="w-20 h-20 bg-accent flex items-center justify-center mx-auto mb-4 text-primary">
                             <SuccessIcon />
                         </div>
                         <h3 className="text-2xl font-bold text-primary mb-2">Inscrição Realizada!</h3>
-                        <p className="text-text-secondary mb-6">
-                            Sua inscrição foi registrada com sucesso. Aguarde a confirmação de presença pelo administrador no dia da ação.
-                        </p>
+                        <p className="text-text-secondary mb-6">Sua inscrição foi registrada. Aguarde a confirmação de presença pelo administrador.</p>
                         <div className="flex flex-col gap-3">
                             <button className="btn btn-primary w-full btn-lg" onClick={resetForm}>Nova Inscrição</button>
                             <Link href="/dashboard" className="btn btn-outline w-full btn-lg flex items-center justify-center gap-2">
@@ -676,26 +705,23 @@ export default function InscricaoPage() {
                 )}
             </main>
 
-            {/* Sticky Confirm Bar (visible when action is selected) */}
-            {selectedAcao && step === 3 && !success && (
+            {/* Sticky Confirm Bar */}
+            {selectedDataProjetoId && step === 3 && !success && (
                 <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-gray-200 shadow-elevated z-50 animate-fade-in-up">
-                    <div className="max-w-lg mx-auto px-4 py-3">
-                        {error && (
-                            <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 mb-2 text-xs">
-                                {error}
-                            </div>
-                        )}
+                    <div className="w-[92vw] max-w-[1400px] mx-auto px-4 py-3">
+                        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 mb-2 text-xs">{error}</div>}
+
                         <div className="flex items-center gap-3">
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs text-text-secondary">Selecionado:</p>
                                 <p className="text-sm font-bold text-text-primary truncate">
-                                    {selectedAcaoData?.titulo} — {selectedAcaoData ? formatDateShort(selectedAcaoData.data_evento) : ""}
+                                    {selectedProjetoTitulo} — {selectedData ? formatDateTimeShort(selectedData.data_evento) : ""}
                                 </p>
                             </div>
                             <button
                                 className="btn btn-primary flex items-center gap-2 flex-shrink-0"
                                 onClick={handleInscrever}
-                                disabled={loading}
+                                disabled={loading || selectedIsAlreadyInscrito}
                             >
                                 {loading ? (
                                     <span className="flex items-center gap-2">
@@ -705,8 +731,14 @@ export default function InscricaoPage() {
                                         </svg>
                                         Inscrevendo...
                                     </span>
+                                ) : selectedIsAlreadyInscrito ? (
+                                    <>
+                                        <HandshakeIcon /> Já inscrito
+                                    </>
                                 ) : (
-                                    <><HandshakeIcon /> Confirmar</>
+                                    <>
+                                        <HandshakeIcon /> Confirmar
+                                    </>
                                 )}
                             </button>
                         </div>
@@ -716,3 +748,4 @@ export default function InscricaoPage() {
         </div>
     );
 }
+

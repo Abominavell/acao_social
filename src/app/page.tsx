@@ -125,20 +125,16 @@ const features = [
   {
     icon: ClipboardIcon,
     title: "Inscreva-se",
-    description: "Selecione seu setor, identifique-se e escolha a ação social para participar.",
+    description: "Selecione seu setor, identifique-se e escolha o projeto/data para participar.",
     delay: "0s",
+    highlight: "Etapa inicial",
   },
   {
     icon: CheckCircleIcon,
     title: "Check-in",
     description: "O administrador confirma sua presença na ação social no dia do evento.",
     delay: "0.1s",
-  },
-  {
-    icon: TrophyIcon,
-    title: "Ranking",
-    description: "Acompanhe o ranking gamificado do seu setor com atualização em tempo real.",
-    delay: "0.2s",
+    highlight: "Validação final",
   },
 ];
 
@@ -154,6 +150,27 @@ const drawerLinks = [
   { href: "/admin", label: "Painel Admin", icon: SettingsIcon },
 ];
 
+const quickAccess = [
+  {
+    href: "/inscricao",
+    title: "Nova inscrição",
+    description: "Acesse o formulário e selecione projeto e data.",
+    icon: ClipboardListIcon,
+  },
+  {
+    href: "/dashboard",
+    title: "Ver engajamento",
+    description: "Acompanhe resultados e evolução por setor.",
+    icon: LayoutDashboardIcon,
+  },
+  {
+    href: "/admin",
+    title: "Gerenciar projetos",
+    description: "Cadastre projetos, datas e confirme presenças.",
+    icon: SettingsIcon,
+  },
+];
+
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -161,7 +178,7 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="header-institutional">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="w-[96vw] max-w-[1800px] mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3" aria-label="IADVh - Página inicial">
             <div className="bg-white/90 px-3 py-1.5 rounded-sm">
               <Image
@@ -175,17 +192,14 @@ export default function Home() {
             </div>
           </Link>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-2" aria-label="Navegação principal">
-            <Link href="/inscricao" className="btn btn-accent-solid text-sm">
-              Inscrição
-            </Link>
-            <Link href="/admin" className="btn btn-header-outline text-sm">
-              Admin
-            </Link>
-            <Link href="/dashboard" className="btn btn-header-outline text-sm">
-              Dashboard
-            </Link>
+          {/* Desktop Quick Access */}
+          <nav className="hidden md:flex items-center gap-2" aria-label="Acesso rápido">
+            {quickAccess.map((item) => (
+              <Link key={item.href} href={item.href} className="header-quick-link">
+                <item.icon />
+                <span>{item.title}</span>
+              </Link>
+            ))}
           </nav>
 
           {/* Mobile Menu Button */}
@@ -256,7 +270,7 @@ export default function Home() {
       {/* Hero */}
       <main>
         <section className="hero-section">
-          <div className="max-w-6xl mx-auto px-4">
+          <div className="w-[96vw] max-w-[1800px] mx-auto px-4">
             <div className="hero-content animate-fade-in-up">
               <span className="badge badge-institutional">
                 <ShieldIcon />
@@ -274,6 +288,9 @@ export default function Home() {
               <div className="hero-actions">
                 <Link href="/inscricao" className="btn btn-cta-hero" id="cta-participar">
                   Quero Participar
+                </Link>
+                <Link href="/dashboard" className="btn btn-outline-white">
+                  Ver Engajamento
                 </Link>
               </div>
             </div>
@@ -295,7 +312,7 @@ export default function Home() {
 
         {/* Feature Cards */}
         <section className="features-section" aria-label="Como funciona">
-          <div className="max-w-6xl mx-auto px-4">
+          <div className="w-[96vw] max-w-[1800px] mx-auto px-4">
             <h3 className="section-title">Como funciona</h3>
 
             <div className="features-grid">
@@ -305,7 +322,10 @@ export default function Home() {
                   className="feature-card animate-fade-in-up"
                   style={{ animationDelay: feature.delay }}
                 >
-                  <div className="feature-step">{String(i + 1).padStart(2, "0")}</div>
+                  <div className="feature-topline">
+                    <div className="feature-step">{String(i + 1).padStart(2, "0")}</div>
+                    <span className="feature-highlight">{feature.highlight}</span>
+                  </div>
                   <div className="feature-icon-wrapper">
                     <feature.icon />
                   </div>
@@ -320,7 +340,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="footer-institutional">
-        <div className="max-w-6xl mx-auto px-4">
+        <div className="w-[96vw] max-w-[1800px] mx-auto px-4">
           <div className="footer-content">
             <Image
               src="/logo.svg"
