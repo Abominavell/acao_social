@@ -4,6 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "IADVh - Voluntariado Social",
   description: "Sistema de Monitoramento de Voluntariado e Compromisso Social do Instituto de Apoio ao Desenvolvimento da Vida Humana",
+  metadataBase: new URL("http://localhost:3000"),
   openGraph: {
     title: "IADVh - Voluntariado Social",
     description: "Inscreva-se em ações sociais, confirme sua presença e acompanhe o ranking do seu setor em tempo real.",

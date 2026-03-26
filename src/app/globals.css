@@ -802,3 +802,24 @@
     transition: none;
   }
 }
+
+/* Global focus accessibility */
+:focus-visible {
+  outline: 2px solid rgba(52, 211, 153, 0.9);
+  outline-offset: 2px;
+}
+
+/* Admin login input readability (typed text + autofill) */
+.admin-login-input {
+  color: #e2e8f0;
+  caret-color: #e2e8f0;
+}
+
+.admin-login-input:-webkit-autofill,
+.admin-login-input:-webkit-autofill:hover,
+.admin-login-input:-webkit-autofill:focus,
+.admin-login-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #e2e8f0;
+  box-shadow: 0 0 0 1000px #020617 inset;
+  transition: background-color 5000s ease-in-out 0s;
+}

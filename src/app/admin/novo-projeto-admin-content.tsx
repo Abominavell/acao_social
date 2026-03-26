@@ -3,10 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import type { Colaborador, DataProjeto, Inscricao, Projeto, Setor } from "@/lib/types";
 import { apiJson, formatApiError, getStoredAccessToken } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
+import { Modal } from "@/components/ui/modal";
+import { Table, Th, Td } from "@/components/ui/table";
+import { WorkspaceShell } from "@/components/layout/workspace-shell";
+import { ProjectPickerModal } from "@/app/admin/components/project-picker-modal";
+import { InscricoesGroupedTable } from "@/app/admin/components/inscricoes-grouped-table";
 
 function PlusIcon() {
     return (
@@ -117,6 +125,7 @@ type EditProjetoDataDraft = {
 export default function NovoProjetoAdminContent() {
     const router = useRouter();
     const { user, loading: authLoading, signOut } = useAuth();
+    const [mounted, setMounted] = useState(false);
 
     const [setores, setSetores] = useState<Setor[]>([]);
     const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
@@ -168,6 +177,10 @@ export default function NovoProjetoAdminContent() {
         ativo: true,
         datas: [],
     });
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     function formatDate(dateStr: string) {
         return new Date(dateStr).toLocaleDateString("pt-BR", {
@@ -667,89 +680,80 @@ export default function NovoProjetoAdminContent() {
     }
 
     return (
-        <div className="min-h-screen bg-background">
-            <header className="bg-dark text-white border-b border-white/10">
-                <div className="w-[96vw] max-w-[1800px] mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-3" aria-label="Voltar para início">
-                        <div className="bg-white/90 px-3 py-1.5 rounded-sm">
-                            <Image src="/logo.svg" alt="Logo IADVh" width={120} height={44} className="h-7 w-auto" priority />
-                        </div>
-                        <span className="font-bold text-sm text-white/60">Admin</span>
-                    </Link>
-                    <div className="flex items-center gap-3">
-                        <span className="text-xs text-white/40 hidden md:inline">{user?.username}</span>
-                        <Link href="/dashboard" className="text-sm text-accent hover:underline">
-                            Dashboard
-                        </Link>
-                        <button onClick={handleSignOut} className="btn btn-header-outline text-xs flex items-center gap-1.5 py-1.5 px-3 min-h-0">
-                            <LogOutIcon /> Sair
-                        </button>
-                    </div>
+        <WorkspaceShell
+            dark
+            title="Painel de Administração"
+            subtitle="Gerencie projetos, datas/horários e presenças."
+            navItems={[
+                { href: "/dashboard", label: "Dashboard" },
+                { href: "/admin", label: "Admin" },
+                { href: "/inscricao", label: "Inscrição" },
+            ]}
+            rightSlot={
+                <div className="flex items-center gap-2">
+                    {mounted ? (
+                        <span className="hidden text-xs text-slate-300 md:inline">{user?.username}</span>
+                    ) : null}
+                    <Button onClick={handleSignOut} variant="outline" size="sm" leftIcon={<LogOutIcon />}>
+                        Sair
+                    </Button>
                 </div>
-            </header>
-
-            <main className="w-[96vw] max-w-[1800px] mx-auto px-4 md:px-6 py-8">
+            }
+        >
                 <div className="flex items-center justify-between mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-text-primary">Painel de Administração</h1>
-                        <p className="text-text-secondary text-sm">Gerencie projetos, datas/horários e presenças</p>
+                        <h2 className="text-xl font-bold text-white">Gestão operacional</h2>
+                        <p className="text-slate-300 text-sm">Projetos, metas de vagas, inscrições e confirmação de presença.</p>
                         <div className="mt-3 flex items-center gap-2">
-                            <Link href="/admin/setores" className="btn btn-outline text-xs py-1.5 px-3 min-h-0">
+                            <Link href="/admin/setores" className="inline-flex h-8 items-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                                 Setores
                             </Link>
-                            <Link href="/admin/colaboradores" className="btn btn-outline text-xs py-1.5 px-3 min-h-0">
+                            <Link href="/admin/colaboradores" className="inline-flex h-8 items-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                                 Colaboradores
                             </Link>
-                            <Link href="/admin/metas" className="btn btn-outline text-xs py-1.5 px-3 min-h-0">
+                            <Link href="/admin/metas" className="inline-flex h-8 items-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                                 Metas por Setor
                             </Link>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button
-                            className="btn btn-outline text-xs py-1.5 px-3 min-h-0"
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => setShowProjetoPicker((prev) => !prev)}
                             title="Selecionar projeto para alterar"
                         >
                             Alterar Projeto
-                        </button>
-                        <button
-                            className="btn btn-outline text-xs py-1.5 px-3 min-h-0"
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={handleResetParticipacoes}
                         >
                             Resetar participações
-                        </button>
-                        <button
-                            className="btn btn-primary flex items-center gap-2"
+                        </Button>
+                        <Button
+                            leftIcon={showCreateForm ? <CloseIcon /> : <PlusIcon />}
                             onClick={() => {
                                 setShowCreateForm(!showCreateForm);
                                 setFormError(null);
                             }}
                         >
-                            {showCreateForm ? (
-                                <>
-                                    <CloseIcon /> Fechar
-                                </>
-                            ) : (
-                                <>
-                                    <PlusIcon /> Novo Projeto
-                                </>
-                            )}
-                        </button>
+                            {showCreateForm ? "Fechar" : "Novo Projeto"}
+                        </Button>
                     </div>
                 </div>
 
                 {showCreateForm && (
-                    <div className="card mb-8 animate-fade-in-up">
+                    <Card className="mb-8 animate-fade-in-up">
                         <h2 className="font-bold text-lg mb-4">Novo Projeto</h2>
                         {formError && (
-                            <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 mb-4 text-sm rounded">{formError}</div>
+                            <Alert tone="error" className="mb-4">{formError}</Alert>
                         )}
                         <form onSubmit={handleCreateProjeto} className="grid md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">Nome do projeto *</label>
-                                <input
-                                    className="input-field"
+                                <Input
+                                    label="Nome do projeto *"
                                     placeholder="Ex: Campanha do Agasalho"
                                     value={newProjeto.titulo}
                                     onChange={(e) => setNewProjeto({ ...newProjeto, titulo: e.target.value })}
@@ -757,10 +761,9 @@ export default function NovoProjetoAdminContent() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">Limite de vagas global *</label>
-                                <input
+                                <Input
+                                    label="Limite de vagas global *"
                                     type="number"
-                                    className="input-field"
                                     min={1}
                                     value={newProjeto.vagas_limite_total || 0}
                                     onChange={(e) => setNewProjeto({ ...newProjeto, vagas_limite_total: parseInt(e.target.value) || 0 })}
@@ -768,9 +771,8 @@ export default function NovoProjetoAdminContent() {
                                 />
                             </div>
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-text-secondary mb-1">Descrição</label>
-                                <input
-                                    className="input-field"
+                                <Input
+                                    label="Descrição"
                                     placeholder="Descrição breve"
                                     value={newProjeto.descricao}
                                     onChange={(e) => setNewProjeto({ ...newProjeto, descricao: e.target.value })}
@@ -782,13 +784,14 @@ export default function NovoProjetoAdminContent() {
                                     <label className="block text-sm font-medium text-text-secondary">
                                         Datas e horários * (soma das vagas deve bater com o total)
                                     </label>
-                                    <button
+                                    <Button
                                         type="button"
                                         onClick={() => setNewProjeto((prev) => ({ ...prev, datas: [...prev.datas, { data_evento: "", vagas_limite: 0 }] }))}
-                                        className="btn btn-outline text-xs py-1.5 px-3 min-h-0"
+                                        variant="outline"
+                                        size="sm"
                                     >
                                         + Adicionar data
-                                    </button>
+                                    </Button>
                                 </div>
 
                                 <div className="space-y-3 bg-gray-50 p-4 rounded border border-gray-100">
@@ -796,9 +799,8 @@ export default function NovoProjetoAdminContent() {
                                         <div key={idx} className="grid md:grid-cols-3 gap-3 items-end">
                                             <div className="md:col-span-2">
                                                 <label className="block text-xs font-semibold text-text-secondary mb-1">Data e Hora</label>
-                                                <input
+                                                <Input
                                                     type="datetime-local"
-                                                    className="input-field"
                                                     value={d.data_evento}
                                                     onChange={(e) => {
                                                         const v = e.target.value;
@@ -812,10 +814,9 @@ export default function NovoProjetoAdminContent() {
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-semibold text-text-secondary mb-1">Vagas *</label>
-                                                <input
+                                                <Input
                                                     type="number"
                                                     min={1}
-                                                    className="input-field"
                                                     value={d.vagas_limite || 0}
                                                     onChange={(e) => {
                                                         const v = parseInt(e.target.value) || 0;
@@ -828,7 +829,7 @@ export default function NovoProjetoAdminContent() {
                                                 />
                                             </div>
                                             <div className="flex justify-end">
-                                                <button
+                                                <Button
                                                     type="button"
                                                     disabled={newProjeto.datas.length <= 1}
                                                     onClick={() => {
@@ -837,10 +838,11 @@ export default function NovoProjetoAdminContent() {
                                                             return { ...prev, datas };
                                                         });
                                                     }}
-                                                    className="btn btn-outline text-xs py-1.5 px-3 min-h-0 disabled:opacity-50"
+                                                    variant="outline"
+                                                    size="sm"
                                                 >
                                                     Remover
-                                                </button>
+                                                </Button>
                                             </div>
                                         </div>
                                     ))}
@@ -856,27 +858,31 @@ export default function NovoProjetoAdminContent() {
                             </div>
 
                             <div className="md:col-span-2">
-                                <button type="submit" className="btn btn-primary">
+                                <Button type="submit">
                                     Criar Projeto
-                                </button>
+                                </Button>
                             </div>
                         </form>
-                    </div>
+                    </Card>
                 )}
 
-                {deleteConfirmProjetoId && (
-                    <div className="card mb-6 border-2 border-error animate-fade-in-up">
-                        <p className="text-text-primary font-semibold mb-3">Excluir este projeto? Todas as datas e inscrições vinculadas serão removidas.</p>
-                        <div className="flex gap-3">
-                            <button onClick={() => handleDeleteProjeto(deleteConfirmProjetoId)} className="btn bg-error text-white hover:bg-red-700">
-                                Sim, Excluir
-                            </button>
-                            <button onClick={() => setDeleteConfirmProjetoId(null)} className="btn btn-outline">
-                                Cancelar
-                            </button>
-                        </div>
+                <Modal
+                    open={!!deleteConfirmProjetoId}
+                    title="Confirmar exclusão"
+                    onClose={() => setDeleteConfirmProjetoId(null)}
+                >
+                    <p className="mb-4 text-sm text-slate-700">
+                        Excluir este projeto? Todas as datas e inscrições vinculadas serão removidas.
+                    </p>
+                    <div className="flex gap-2">
+                        <Button onClick={() => deleteConfirmProjetoId && handleDeleteProjeto(deleteConfirmProjetoId)} variant="danger">
+                            Sim, excluir
+                        </Button>
+                        <Button onClick={() => setDeleteConfirmProjetoId(null)} variant="outline">
+                            Cancelar
+                        </Button>
                     </div>
-                )}
+                </Modal>
 
                 {showEditProjetoForm && (
                     <div className="card mb-6 animate-fade-in-up border border-primary/25">
@@ -1031,70 +1037,13 @@ export default function NovoProjetoAdminContent() {
                     </div>
                 )}
 
-                {showProjetoPicker && (
-                    <div className="card mb-6 animate-fade-in-up">
-                        <div className="flex items-center justify-between mb-3">
-                            <h2 className="font-bold text-lg">Selecionar projeto para alterar</h2>
-                            <button type="button" className="btn btn-outline text-xs py-1.5 px-3 min-h-0" onClick={() => setShowProjetoPicker(false)}>
-                                Fechar
-                            </button>
-                        </div>
-                        {projetos.length === 0 ? (
-                            <p className="text-sm text-text-secondary">Nenhum projeto cadastrado.</p>
-                        ) : (
-                            <div className="max-h-72 overflow-y-auto border border-gray-100 rounded">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Projeto</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Ações cadastradas</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
-                                            <th className="px-3 py-2 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Ação</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {projetos.map((projeto) => (
-                                            <tr key={projeto.id}>
-                                                <td className="px-3 py-2 text-text-primary">{projeto.titulo}</td>
-                                                <td className="px-3 py-2 text-xs text-text-secondary">
-                                                    {(() => {
-                                                        const datasDoProjeto = datasProjetos
-                                                            .filter((d) => d.projeto_id === projeto.id)
-                                                            .sort((a, b) => new Date(a.data_evento).getTime() - new Date(b.data_evento).getTime());
-                                                        if (datasDoProjeto.length === 0) return "Sem ações";
-                                                        const preview = datasDoProjeto.slice(0, 3);
-                                                        const restante = datasDoProjeto.length - preview.length;
-                                                        return (
-                                                            <div className="space-y-1">
-                                                                <p className="font-semibold text-text-primary text-xs">{datasDoProjeto.length} ação(ões)</p>
-                                                                {preview.map((d) => (
-                                                                    <p key={d.id}>
-                                                                        {new Date(d.data_evento).toLocaleDateString("pt-BR")} {new Date(d.data_evento).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} • {d.vagas_limite} vagas
-                                                                    </p>
-                                                                ))}
-                                                                {restante > 0 && <p>+ {restante} ação(ões)</p>}
-                                                            </div>
-                                                        );
-                                                    })()}
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    <span className={`text-xs font-semibold px-2 py-1 rounded ${projeto.ativo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
-                                                        {projeto.ativo ? "Ativo" : "Inativo"}
-                                                    </span>
-                                                </td>
-                                                <td className="px-3 py-2 text-right">
-                                                    <button className="btn btn-outline text-xs py-1.5 px-3 min-h-0" onClick={() => openEditProjetoForm(projeto)}>
-                                                        Alterar
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-                )}
+                <ProjectPickerModal
+                    open={showProjetoPicker}
+                    projetos={projetos}
+                    datasProjetos={datasProjetos}
+                    onClose={() => setShowProjetoPicker(false)}
+                    onSelectProject={openEditProjetoForm}
+                />
 
                 <div className="grid md:grid-cols-4 gap-4 mb-6">
                     <div className="md:col-span-2 card">
@@ -1290,7 +1239,7 @@ export default function NovoProjetoAdminContent() {
                     </div>
                 </div>
 
-                <div className="card mb-6">
+                <Card className="mb-6">
                     <div className="flex items-center justify-between mb-3">
                         <h2 className="font-bold text-text-primary">Ainda não participaram de nenhuma ação</h2>
                         <span className="text-xs text-text-secondary">{naoParticiparam.length} colaborador(es)</span>
@@ -1298,28 +1247,28 @@ export default function NovoProjetoAdminContent() {
                     {naoParticiparam.length === 0 ? (
                         <p className="text-sm text-text-secondary">Todos os colaboradores já possuem pelo menos uma presença confirmada.</p>
                     ) : (
-                        <div className="max-h-48 overflow-y-auto border border-gray-100 rounded">
-                            <table className="w-full text-sm">
-                                <thead className="bg-gray-50">
+                        <div className="max-h-48 overflow-y-auto">
+                            <Table>
+                                <thead>
                                     <tr className="text-left">
-                                        <th className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase tracking-wider">Nome</th>
-                                        <th className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase tracking-wider">Setor</th>
-                                        <th className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase tracking-wider">Tipo</th>
+                                        <Th>Nome</Th>
+                                        <Th>Setor</Th>
+                                        <Th>Tipo</Th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {naoParticiparam.map((c) => (
                                         <tr key={c.id}>
-                                            <td className="px-3 py-2 text-text-primary">{c.nome}</td>
-                                            <td className="px-3 py-2 text-text-secondary">{c.setores?.nome || "—"}</td>
-                                            <td className="px-3 py-2">{c.is_externo ? <span className="badge badge-warning">Externo</span> : <span className="badge badge-success">Interno</span>}</td>
+                                            <Td className="text-text-primary">{c.nome}</Td>
+                                            <Td className="text-text-secondary">{c.setores?.nome || "—"}</Td>
+                                            <Td>{c.is_externo ? <span className="badge badge-warning">Externo</span> : <span className="badge badge-success">Interno</span>}</Td>
                                         </tr>
                                     ))}
                                 </tbody>
-                            </table>
+                            </Table>
                         </div>
                     )}
-                </div>
+                </Card>
 
                 <div className="card overflow-hidden p-0">
                     <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1349,9 +1298,9 @@ export default function NovoProjetoAdminContent() {
                         </div>
 
                         {filteredInscricoes.length > 0 && (
-                            <button onClick={exportCSV} className="btn btn-outline text-xs py-1.5 px-3 min-h-0 flex items-center gap-1.5 ml-auto sm:ml-0">
-                                <DownloadIcon /> Exportar CSV
-                            </button>
+                            <Button onClick={exportCSV} variant="outline" size="sm" leftIcon={<DownloadIcon />} className="ml-auto sm:ml-0">
+                                Exportar CSV
+                            </Button>
                         )}
                     </div>
 
@@ -1361,16 +1310,15 @@ export default function NovoProjetoAdminContent() {
                             Carregando...
                         </div>
                     ) : selectedDataProjetoId && selectedDataProjeto ? (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
+                        <Table>
                                 <thead>
                                     <tr className="bg-gray-50 text-left">
-                                        <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Voluntário</th>
-                                        <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Setor</th>
-                                        <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Tipo</th>
-                                        <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Data Inscrição</th>
-                                        <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Data Evento</th>
-                                        <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider text-center">Presença</th>
+                                        <Th className="px-6">Voluntário</Th>
+                                        <Th className="px-6">Setor</Th>
+                                        <Th className="px-6">Tipo</Th>
+                                        <Th className="px-6">Data Inscrição</Th>
+                                        <Th className="px-6">Data Evento</Th>
+                                        <Th className="px-6 text-center">Presença</Th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -1381,16 +1329,16 @@ export default function NovoProjetoAdminContent() {
                                         const displaySetor = externoInfo ? externoInfo.unit : colab?.setores?.nome || "—";
                                         return (
                                             <tr key={insc.id} className={`transition-colors ${insc.confirmado_presenca ? "bg-green-50" : "hover:bg-gray-50"}`}>
-                                                <td className="px-6 py-4">
+                                                <Td className="px-6 py-4">
                                                     <span className="font-medium text-text-primary">{displayName}</span>
-                                                </td>
-                                                <td className="px-6 py-4 text-sm text-text-secondary">{displaySetor}</td>
-                                                <td className="px-6 py-4">
+                                                </Td>
+                                                <Td className="px-6 py-4 text-sm text-text-secondary">{displaySetor}</Td>
+                                                <Td className="px-6 py-4">
                                                     {colab?.is_externo ? <span className="badge badge-warning">Externo</span> : <span className="badge badge-success">Interno</span>}
-                                                </td>
-                                                <td className="px-6 py-4 text-sm text-text-secondary">{formatDate(insc.created_at)}</td>
-                                                <td className="px-6 py-4 text-sm text-text-secondary">{selectedDataProjeto ? formatDate(selectedDataProjeto.data_evento) : "—"}</td>
-                                                <td className="px-6 py-4 text-center">
+                                                </Td>
+                                                <Td className="px-6 py-4 text-sm text-text-secondary">{formatDate(insc.created_at)}</Td>
+                                                <Td className="px-6 py-4 text-sm text-text-secondary">{selectedDataProjeto ? formatDate(selectedDataProjeto.data_evento) : "—"}</Td>
+                                                <Td className="px-6 py-4 text-center">
                                                     <button
                                                         onClick={() => togglePresenca(insc.id, insc.confirmado_presenca)}
                                                         className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${insc.confirmado_presenca ? "bg-primary" : "bg-gray-300"}`}
@@ -1398,13 +1346,12 @@ export default function NovoProjetoAdminContent() {
                                                     >
                                                         <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${insc.confirmado_presenca ? "translate-x-6" : "translate-x-0"}`} />
                                                     </button>
-                                                </td>
+                                                </Td>
                                             </tr>
                                         );
                                     })}
                                 </tbody>
-                            </table>
-                        </div>
+                        </Table>
                     ) : filteredInscricoes.length === 0 ? (
                         <div className="text-center py-12 text-text-secondary">
                             <div className="mx-auto mb-3 text-text-secondary/40">
@@ -1413,76 +1360,17 @@ export default function NovoProjetoAdminContent() {
                             <p>Nenhuma inscrição encontrada.</p>
                         </div>
                     ) : (
-                        <div className="space-y-6 p-4">
-                            {groupedInscricoesByProjeto.map(([projetoId, group]) => (
-                                <div key={projetoId} className="border border-gray-100 rounded-lg overflow-hidden">
-                                    <button
-                                        type="button"
-                                        onClick={() => setExpandedProjetoId((prev) => (prev === projetoId ? null : projetoId))}
-                                        className="w-full bg-gray-50 px-4 py-3 border-b border-gray-100 text-left flex items-center justify-between"
-                                    >
-                                        <div>
-                                            <p className="font-semibold text-text-primary">{group.projeto?.titulo || "Projeto não identificado"}</p>
-                                            <p className="text-xs text-text-secondary">
-                                                {group.items.length} inscrito(s)
-                                            </p>
-                                        </div>
-                                        <span className="text-xs font-semibold text-primary">{expandedProjetoId === projetoId ? "Ocultar" : "Ver inscrições"}</span>
-                                    </button>
-
-                                    {expandedProjetoId === projetoId && (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full">
-                                                <thead>
-                                                    <tr className="bg-white text-left">
-                                                        <th className="px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Voluntário</th>
-                                                        <th className="px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Setor</th>
-                                                        <th className="px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Tipo</th>
-                                                        <th className="px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Data Inscrição</th>
-                                                        <th className="px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Data Evento</th>
-                                                        <th className="px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider text-center">Presença</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-gray-100">
-                                                    {group.items.map((insc) => {
-                                                        const colab = insc.colaboradores as unknown as { is_externo: boolean; nome: string; setores?: { nome: string } | null };
-                                                        const externoInfo = colab?.is_externo ? parseExternoName(colab.nome) : null;
-                                                        const displayName = externoInfo ? externoInfo.name : colab?.nome || "—";
-                                                        const displaySetor = externoInfo ? externoInfo.unit : colab?.setores?.nome || "—";
-                                                        return (
-                                                            <tr key={insc.id} className={`transition-colors ${insc.confirmado_presenca ? "bg-green-50" : "hover:bg-gray-50"}`}>
-                                                                <td className="px-4 py-3">
-                                                                    <span className="font-medium text-text-primary">{displayName}</span>
-                                                                </td>
-                                                                <td className="px-4 py-3 text-sm text-text-secondary">{displaySetor}</td>
-                                                                <td className="px-4 py-3">
-                                                                    {colab?.is_externo ? <span className="badge badge-warning">Externo</span> : <span className="badge badge-success">Interno</span>}
-                                                                </td>
-                                                                <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(insc.created_at)}</td>
-                                                                <td className="px-4 py-3 text-sm text-text-secondary">{insc.datas_projeto?.data_evento ? formatDate(insc.datas_projeto.data_evento) : "—"}</td>
-                                                                <td className="px-4 py-3 text-center">
-                                                                    <button
-                                                                        onClick={() => togglePresenca(insc.id, insc.confirmado_presenca)}
-                                                                        className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${insc.confirmado_presenca ? "bg-primary" : "bg-gray-300"}`}
-                                                                        title={insc.confirmado_presenca ? "Presença confirmada" : "Confirmar presença"}
-                                                                    >
-                                                                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${insc.confirmado_presenca ? "translate-x-6" : "translate-x-0"}`} />
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
+                        <InscricoesGroupedTable
+                            groups={groupedInscricoesByProjeto}
+                            expandedProjetoId={expandedProjetoId}
+                            onToggleExpand={(id) => setExpandedProjetoId((prev) => (prev === id ? null : id))}
+                            onTogglePresenca={togglePresenca}
+                            formatDate={formatDate}
+                            parseExternoName={parseExternoName}
+                        />
                     )}
                 </div>
-            </main>
-        </div>
+        </WorkspaceShell>
     );
 }
 

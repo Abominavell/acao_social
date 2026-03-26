@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { AuthProvider, useAuth } from "@/components/auth-provider";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Alert } from "@/components/ui/alert";
 
 function LockIcon() {
     return (
@@ -62,7 +67,7 @@ function LoginForm() {
     }
 
     return (
-        <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
             <div className="w-full max-w-sm">
                 {/* Logo */}
                 <div className="text-center mb-8">
@@ -74,87 +79,89 @@ function LoginForm() {
                         className="h-14 w-auto mx-auto mb-4"
                         priority
                     />
-                    <div className="flex items-center justify-center gap-2 text-text-secondary mb-1">
+                    <div className="flex items-center justify-center gap-2 text-slate-300 mb-1">
                         <LockIcon />
-                        <h1 className="text-lg font-bold text-text-primary">Painel Administrativo</h1>
+                        <h1 className="text-lg font-bold text-white">Painel Administrativo</h1>
                     </div>
-                    <p className="text-sm text-text-secondary">
+                    <p className="text-sm text-slate-300">
                         Acesso restrito à Equipe de Responsabilidade Social
                     </p>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="card">
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 mb-4 text-sm flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" x2="9" y1="9" y2="15" /><line x1="9" x2="15" y1="9" y2="15" /></svg>
-                            {error}
-                        </div>
-                    )}
+                <Card className="border-white/10 bg-slate-900">
+                    <form onSubmit={handleSubmit}>
+                        {error ? <Alert tone="error" className="mb-4">{error}</Alert> : null}
 
-                    <div className="mb-4">
-                        <label htmlFor="username" className="block text-sm font-semibold text-text-primary mb-1.5">
-                            Usuário (Django)
-                        </label>
-                        <input
-                            id="username"
-                            type="text"
-                            className="input-field"
-                            placeholder="mesmo usuário do createsuperuser"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            required
-                            autoComplete="username"
-                            autoFocus
-                        />
-                    </div>
-
-                    <div className="mb-6">
-                        <label htmlFor="password" className="block text-sm font-semibold text-text-primary mb-1.5">
-                            Senha
-                        </label>
-                        <div className="relative">
-                            <input
-                                id="password"
-                                type={showPassword ? "text" : "password"}
-                                className="input-field pr-12"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                        <div className="mb-4">
+                            <Input
+                                label="Usuário (Django)"
+                                className="admin-login-input border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-200/30"
+                                id="username"
+                                type="text"
+                                placeholder="mesmo usuário do createsuperuser"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
                                 required
-                                autoComplete="current-password"
+                                autoComplete="username"
+                                autoFocus
                             />
-                            <button
-                                type="button"
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors p-1"
-                                onClick={() => setShowPassword(!showPassword)}
-                                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                            >
-                                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                            </button>
                         </div>
-                    </div>
 
-                    <button
-                        type="submit"
-                        className="btn btn-primary btn-lg w-full"
-                        disabled={loading || !username || !password}
-                    >
-                        {loading ? (
-                            <span className="flex items-center gap-2">
-                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                </svg>
-                                Entrando...
-                            </span>
-                        ) : (
-                            "Entrar"
-                        )}
-                    </button>
-                </form>
+                        <div className="mb-6">
+                            <label htmlFor="password" className="block text-sm font-semibold text-slate-200 mb-1.5">
+                                Senha
+                            </label>
+                            <div className="relative">
+                                <input
+                                    id="password"
+                                    type={showPassword ? "text" : "password"}
+                                    className="input-field admin-login-input pr-12 border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-400"
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    autoComplete="current-password"
+                                />
+                                <button
+                                    type="button"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors p-1"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                                >
+                                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                                </button>
+                            </div>
+                        </div>
 
-                <p className="text-center text-xs text-text-secondary mt-6">
+                        <Button
+                            type="submit"
+                            className="w-full"
+                            size="lg"
+                            disabled={loading || !username || !password}
+                        >
+                            {loading ? (
+                                <span className="flex items-center gap-2">
+                                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                    </svg>
+                                    Entrando...
+                                </span>
+                            ) : (
+                                "Entrar"
+                            )}
+                        </Button>
+                    </form>
+                </Card>
+
+                <div className="text-center mt-5">
+                    <Link href="/" className="text-xs font-semibold text-slate-400 hover:text-white">
+                        Voltar para página inicial
+                    </Link>
+                </div>
+
+                <p className="text-center text-xs text-slate-500 mt-4">
                     Sistema de Monitoramento de Voluntariado<br />
                     Gerenciado pela Equipe de Responsabilidade Social
                 </p>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiJson, formatApiError, getStoredAccessToken } from "@/lib/api";
 import type { Colaborador, DataProjeto, Inscricao, Setor } from "@/lib/types";
+import { WorkspaceShell } from "@/components/layout/workspace-shell";
 
 export default function ProjetosMetasAdminContent() {
     const router = useRouter();
@@ -95,18 +96,36 @@ export default function ProjetosMetasAdminContent() {
 
     if (loading) {
         return (
-            <main className="w-[96vw] max-w-[1800px] mx-auto px-4 py-8">
-                <p className="text-text-secondary">Carregando metas por projeto...</p>
-            </main>
+            <WorkspaceShell
+                dark
+                title="Cobertura Anual por Setor"
+                subtitle="Meta anual de participação por setor."
+                navItems={[
+                    { href: "/dashboard", label: "Dashboard" },
+                    { href: "/admin", label: "Admin" },
+                    { href: "/admin/colaboradores", label: "Colaboradores" },
+                ]}
+            >
+                <p className="text-slate-300">Carregando metas por projeto...</p>
+            </WorkspaceShell>
         );
     }
 
     return (
-        <main className="w-[96vw] max-w-[1800px] mx-auto px-4 py-8">
+        <WorkspaceShell
+            dark
+            title="Cobertura Anual por Setor"
+            subtitle="Meta anual: garantir participação de todos os colaboradores ao longo do ano."
+            navItems={[
+                { href: "/dashboard", label: "Dashboard" },
+                { href: "/admin", label: "Admin" },
+                { href: "/admin/setores", label: "Setores" },
+            ]}
+        >
             <div className="mb-6 flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-text-primary">Cobertura Anual por Setor</h1>
-                    <p className="text-sm text-text-secondary">
+                    <h1 className="text-2xl font-bold text-white">Cobertura Anual por Setor</h1>
+                    <p className="text-sm text-slate-300">
                         Meta anual: garantir participação de todos os colaboradores ao longo do ano.
                     </p>
                 </div>
@@ -156,7 +175,7 @@ export default function ProjetosMetasAdminContent() {
                     </table>
                 </div>
             </section>
-        </main>
+        </WorkspaceShell>
     );
 }
 

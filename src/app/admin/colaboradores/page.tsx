@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiJson, formatApiError, getStoredAccessToken } from "@/lib/api";
 import type { Colaborador, Setor } from "@/lib/types";
+import { WorkspaceShell } from "@/components/layout/workspace-shell";
 
 export default function ColaboradoresPage() {
     const router = useRouter();
@@ -145,9 +146,18 @@ export default function ColaboradoresPage() {
     }
 
     return (
-        <main className="max-w-6xl mx-auto px-4 py-8">
+        <WorkspaceShell
+            dark
+            title="CRUD de Colaboradores"
+            subtitle="Gerencie cadastro, edição e importação em lote de colaboradores."
+            navItems={[
+                { href: "/dashboard", label: "Dashboard" },
+                { href: "/admin", label: "Admin" },
+                { href: "/admin/setores", label: "Setores" },
+            ]}
+        >
             <div className="mb-6 flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-text-primary">CRUD de Colaboradores</h1>
+                <h1 className="text-2xl font-bold text-white">Colaboradores</h1>
                 <Link href="/admin" className="btn btn-outline">Voltar ao Admin</Link>
             </div>
 
@@ -235,6 +245,6 @@ export default function ColaboradoresPage() {
                     {colaboradores.length === 0 && <p className="px-6 py-4 text-sm text-text-secondary">Nenhum colaborador cadastrado.</p>}
                 </div>
             </div>
-        </main>
+        </WorkspaceShell>
     );
 }

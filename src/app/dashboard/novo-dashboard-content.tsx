@@ -1,10 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { apiJson } from "@/lib/api";
 import type { Colaborador, DataProjeto, Inscricao, RankingSetor, Setor } from "@/lib/types";
+import { DashboardPeriodControls } from "@/app/dashboard/components/dashboard-period-controls";
+import { DashboardKpiGrid } from "@/app/dashboard/components/dashboard-kpi-grid";
+import { DashboardRankingList } from "@/app/dashboard/components/dashboard-ranking-list";
+import { WorkspaceShell } from "@/components/layout/workspace-shell";
 
 function EngagementHorizontalBar({ percent }: { percent: number }) {
     const p = Math.max(0, Math.min(100, percent));
@@ -54,16 +57,6 @@ function EngagementHorizontalBar({ percent }: { percent: number }) {
             </div>
         </div>
     );
-}
-
-function formatDateTimeShort(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
 }
 
 function distributeVagasProporcional(
@@ -250,8 +243,6 @@ export default function NovoDashboardContent() {
             confirmedBySetor.set(colab.setor_id, current);
         });
 
-        const institutionMetaTotal = Array.from(metaBySetor.values()).reduce((sum, v) => sum + v, 0);
-        const institutionConfirmedTotal = Array.from(confirmedBySetor.values()).reduce((sum, setIds) => sum + setIds.size, 0);
 
         const ranking: RankingSetor[] = setores
             .map((s) => {
@@ -275,10 +266,6 @@ export default function NovoDashboardContent() {
                     b.total_membros - a.total_membros,
             );
 
-        const institutionEngagementPercentCalculated =
-            setores.length > 0 ? Math.min(100, Math.round(ranking.reduce((sum, item) => sum + item.taxa_engajamento, 0) / setores.length)) : 0;
-
-        const mediaEngajamentoSetores = ranking.length > 0 ? Math.round(ranking.reduce((sum, item) => sum + item.taxa_engajamento, 0) / ranking.length) : 0;
 
         // Disponibilidade por ocorrência (data)
         const usageByData = new Map<string, { total: number; internosPorSetor: Record<string, number> }>();
@@ -452,88 +439,36 @@ export default function NovoDashboardContent() {
     ];
 
     return (
-        <div className="min-h-screen bg-primary">
-            <header className="bg-primary-dark/50 border-b border-white/10">
-                <div className="w-[96vw] max-w-[1800px] mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-3" aria-label="Voltar para início">
-                        <div className="bg-white/90 px-3 py-1.5 rounded-sm">
-                            <Image src="/logo.svg" alt="Logo IADVh" width={120} height={44} className="h-7 w-auto" priority />
-                        </div>
-                        <span className="text-accent text-xs font-medium">Dashboard ao Vivo</span>
+        <WorkspaceShell
+            dark
+            title="Ranking de Compromisso Social"
+            subtitle="Acompanhe o engajamento dos setores em tempo real."
+            navItems={[
+                { href: "/inscricao", label: "Inscrição" },
+                { href: "/dashboard", label: "Dashboard" },
+                { href: "/admin/login", label: "Acesso restrito" },
+            ]}
+            rightSlot={
+                <div className="flex items-center gap-3">
+                    <div className="hidden items-center gap-1.5 text-accent text-xs md:flex">
+                        <span className="w-2 h-2 bg-accent rounded-full animate-pulse" />
+                        Atualizado: {lastUpdate.toLocaleTimeString("pt-BR")}
+                    </div>
+                    <Link href="/inscricao" className="btn btn-secondary text-xs py-2 px-3">
+                        Inscrever-se
                     </Link>
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1.5 text-accent text-xs">
-                            <span className="w-2 h-2 bg-accent rounded-full animate-pulse" />
-                            Atualizado: {lastUpdate.toLocaleTimeString("pt-BR")}
-                        </div>
-                        <Link href="/inscricao" className="btn btn-secondary text-xs py-2 px-3">
-                            Inscrever-se
-                        </Link>
-                    </div>
                 </div>
-            </header>
+            }
+        >
 
-            <main className="w-[96vw] max-w-[1800px] mx-auto px-4 md:px-6 py-8">
-                <div className="text-center mb-8 animate-fade-in-up">
-                    <h1 className="text-white font-black text-3xl md:text-4xl">Ranking de Compromisso Social</h1>
-                    <p className="text-accent text-sm mt-2">Acompanhe o engajamento dos setores em tempo real</p>
-                </div>
-
-                <div className="flex flex-col items-center mb-8 gap-4">
-                    <div className="bg-primary-dark/40 p-1 flex rounded">
-                        <button
-                            className={`px-6 py-2 text-sm font-semibold transition-all rounded-l ${periodo === "mes" ? "bg-white text-primary shadow-lg" : "text-white/70 hover:text-white"}`}
-                            onClick={() => setPeriodo("mes")}
-                        >
-                            Mês Atual
-                        </button>
-                        <button
-                            className={`px-6 py-2 text-sm font-semibold transition-all ${periodo === "ano" ? "bg-white text-primary shadow-lg" : "text-white/70 hover:text-white"}`}
-                            onClick={() => setPeriodo("ano")}
-                        >
-                            Ano Atual
-                        </button>
-                        <button
-                            className={`px-6 py-2 text-sm font-semibold transition-all rounded-r ${periodo === "custom" ? "bg-white text-primary shadow-lg" : "text-white/70 hover:text-white"}`}
-                            onClick={() => setPeriodo("custom")}
-                        >
-                            Específico
-                        </button>
-                    </div>
-
-                    {periodo === "custom" && (
-                        <div className="flex items-center gap-2 animate-fade-in-up">
-                            <select
-                                className="bg-white/10 border border-white/20 text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:border-white/40 [&>option]:text-primary"
-                                value={selectedMonth}
-                                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                            >
-                                {Array.from({ length: 12 }).map((_, i) => {
-                                    const date = new Date(2000, i, 1);
-                                    return (
-                                        <option key={i} value={i}>
-                                            {date.toLocaleDateString("pt-BR", { month: "long" }).charAt(0).toUpperCase() + date.toLocaleDateString("pt-BR", { month: "long" }).slice(1)}
-                                        </option>
-                                    );
-                                })}
-                            </select>
-                            <select
-                                className="bg-white/10 border border-white/20 text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:border-white/40 [&>option]:text-primary"
-                                value={selectedYear}
-                                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                            >
-                                {Array.from({ length: 5 }).map((_, i) => {
-                                    const year = new Date().getFullYear() - i;
-                                    return (
-                                        <option key={i} value={year}>
-                                            {year}
-                                        </option>
-                                    );
-                                })}
-                            </select>
-                        </div>
-                    )}
-                </div>
+                <DashboardPeriodControls
+                    periodo={periodo}
+                    selectedMonth={selectedMonth}
+                    selectedYear={selectedYear}
+                    onPeriodoChange={setPeriodo}
+                    onMonthChange={setSelectedMonth}
+                    onYearChange={setSelectedYear}
+                />
 
                 {loading ? (
                     <div className="text-center py-16 text-white/70">
@@ -541,24 +476,7 @@ export default function NovoDashboardContent() {
                     </div>
                 ) : (
                     <>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-                            <div className="bg-white/10 border border-white/20 p-4 text-center">
-                                <p className="text-2xl md:text-3xl font-black text-white">{statsValues[0]}</p>
-                                <p className="text-xs text-accent font-medium">Participações</p>
-                            </div>
-                            <div className="bg-white/10 border border-white/20 p-4 text-center">
-                                <p className="text-2xl md:text-3xl font-black text-white">{statsValues[1]}</p>
-                                <p className="text-xs text-accent font-medium">Setores ativos</p>
-                            </div>
-                            <div className="bg-white/10 border border-white/20 p-4 text-center">
-                                <p className="text-2xl md:text-3xl font-black text-white">{statsValues[2]}</p>
-                                <p className="text-xs text-accent font-medium">Datas no período</p>
-                            </div>
-                            <div className="bg-white/10 border border-white/20 p-4 text-center">
-                                <p className="text-2xl md:text-3xl font-black text-white">{statsValues[3]}</p>
-                                <p className="text-xs text-accent font-medium">Externos confirmados</p>
-                            </div>
-                        </div>
+                        <DashboardKpiGrid statsValues={statsValues} />
 
                         <div className="mt-2 mb-8 bg-white/10 border border-white/20 overflow-hidden">
                             <div className="px-6 py-4 border-b border-white/10">
@@ -615,38 +533,7 @@ export default function NovoDashboardContent() {
                             </div>
                         </div>
 
-                        <div className="mt-8 bg-white/10 border border-white/20 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-white/10">
-                                <h2 className="text-white font-bold">Engajamento por Setor</h2>
-                            </div>
-                            <div className="divide-y divide-white/10">
-                                {data.ranking.map((item, i) => (
-                                    <div key={item.setor_id} className="px-6 py-4 flex items-center gap-4">
-                                        <div className="w-8 text-center">
-                                            <span className="text-white/50 font-bold text-sm">{i + 1}º</span>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-white font-semibold text-sm truncate">{item.setor_nome}</p>
-                                            <p className="text-accent text-xs">
-                                                {item.participantes_unicos} confirmadas / meta {item.meta_setor || 0}
-                                            </p>
-                                        </div>
-                                        <div className="hidden md:block flex-1 max-w-xs">
-                                            <div className="w-full bg-white/10 h-3 overflow-hidden">
-                                                <div
-                                                    className="h-full bg-gradient-to-r from-accent to-primary-light transition-all duration-700"
-                                                    style={{ width: `${item.taxa_engajamento}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-white font-bold text-lg">{item.taxa_engajamento}%</p>
-                                            <p className="text-accent text-[10px] font-medium">meta atingida</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <DashboardRankingList ranking={data.ranking} />
 
                         <div className="bg-white/5 border border-white/10 p-4 mt-8">
                             <p className="text-xs text-accent/70 font-medium uppercase tracking-wider mb-3">
@@ -677,8 +564,7 @@ export default function NovoDashboardContent() {
                         </div>
                     </>
                 )}
-            </main>
-        </div>
+        </WorkspaceShell>
     );
 }
 

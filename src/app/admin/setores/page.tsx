@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ApiError, apiJson, formatApiError, getStoredAccessToken } from "@/lib/api";
 import type { Setor } from "@/lib/types";
+import { WorkspaceShell } from "@/components/layout/workspace-shell";
 
 export default function SetoresPage() {
     const router = useRouter();
@@ -99,9 +100,18 @@ export default function SetoresPage() {
     }
 
     return (
-        <main className="max-w-5xl mx-auto px-4 py-8">
+        <WorkspaceShell
+            dark
+            title="CRUD de Setores"
+            subtitle="Cadastre, edite e remova setores da operação."
+            navItems={[
+                { href: "/dashboard", label: "Dashboard" },
+                { href: "/admin", label: "Admin" },
+                { href: "/admin/colaboradores", label: "Colaboradores" },
+            ]}
+        >
             <div className="mb-6 flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-text-primary">CRUD de Setores</h1>
+                <h1 className="text-2xl font-bold text-white">Setores</h1>
                 <Link href="/admin" className="btn btn-outline">Voltar ao Admin</Link>
             </div>
 
@@ -140,6 +150,6 @@ export default function SetoresPage() {
                     {setores.length === 0 && <p className="px-6 py-4 text-sm text-text-secondary">Nenhum setor cadastrado.</p>}
                 </div>
             </div>
-        </main>
+        </WorkspaceShell>
     );
 }
