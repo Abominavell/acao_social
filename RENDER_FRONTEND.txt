@@ -1,0 +1,27 @@
+Render — Web Service (Next.js). Cole no painel SEM reticencias (...).
+
+Build Command:
+npm ci && npm run build
+
+Start Command:
+npm start
+
+Root Directory:
+(deixe vazio)
+
+Branch:
+main
+
+Environment (obrigatorio — defina ANTES do build ou redeploy apos salvar):
+
+Key: NEXT_PUBLIC_API_URL
+Value: https://monitoramento-backend-api.onrender.com/api
+
+(Ajuste o subdominio se o nome do seu servico da API for outro. Sem barra no final.)
+
+Na API Django (mesmo painel Render, servico Python), adicione com a URL PUBLICA deste frontend:
+
+CORS_ALLOWED_ORIGINS=https://SEU-FRONT.onrender.com
+CSRF_TRUSTED_ORIGINS=https://SEU-FRONT.onrender.com
+
+Substitua SEU-FRONT pelo hostname que o Render mostrar apos criar o Web Service do Next.js.

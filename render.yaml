@@ -1,0 +1,18 @@
+# Blueprint Render: Web Service (Next.js) que consome a API Django.
+# No painel: New > Blueprint > conecte o repositório deste projeto.
+# Depois defina NEXT_PUBLIC_API_URL com a URL pública da API (ex.: https://sua-api.onrender.com/api).
+
+services:
+  - type: web
+    name: monitoramento-de-voluntarios
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20.18.0"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
