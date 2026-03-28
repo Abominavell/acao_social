@@ -131,9 +131,12 @@ export async function apiFetch(path: string, options: FetchOptions = {}): Promis
         headers.set("Authorization", `Bearer ${token}`);
     }
 
-    if (
-        rest.body &&
-        typeof rest.body === "string" &&
+    const body = rest.body;
+    if (body instanceof FormData) {
+        headers.delete("Content-Type");
+    } else if (
+        body &&
+        typeof body === "string" &&
         !headers.has("Content-Type")
     ) {
         headers.set("Content-Type", "application/json");
@@ -141,13 +144,30 @@ export async function apiFetch(path: string, options: FetchOptions = {}): Promis
 
     const url = resolveApiUrl(path);
 
-    let res = await fetch(url, { ...rest, headers });
+    let res: Response;
+    try {
+        res = await fetch(url, { ...rest, headers });
+    } catch (err) {
+        const msg =
+            err instanceof TypeError
+                ? "Não foi possível contatar a API. Verifique a URL (NEXT_PUBLIC_API_URL), CORS na API (CORS_ALLOWED_ORIGINS com a origem exata deste site, https://…), rede e tamanho do arquivo."
+                : String(err);
+        throw new ApiError(0, { detail: msg }, "Failed to fetch");
+    }
 
     if (res.status === 401 && auth) {
         const newAccess = await refreshAccessToken();
         if (newAccess) {
             headers.set("Authorization", `Bearer ${newAccess}`);
-            res = await fetch(url, { ...rest, headers });
+            try {
+                res = await fetch(url, { ...rest, headers });
+            } catch (err) {
+                const msg =
+                    err instanceof TypeError
+                        ? "Não foi possível contatar a API após renovar o token."
+                        : String(err);
+                throw new ApiError(0, { detail: msg }, "Failed to fetch");
+            }
         }
     }
 
@@ -157,7 +177,14 @@ export async function apiFetch(path: string, options: FetchOptions = {}): Promis
 export async function apiJson<T>(path: string, options: FetchOptions = {}): Promise<T> {
     const res = await apiFetch(path, options);
     const text = await res.text();
-    const body = text ? (JSON.parse(text) as unknown) : null;
+    let body: unknown = null;
+    if (text) {
+        try {
+            body = JSON.parse(text) as unknown;
+        } catch {
+            body = { detail: text.slice(0, 200) };
+        }
+    }
     if (!res.ok) {
         throw new ApiError(res.status, body);
     }
@@ -188,6 +215,11 @@ export async function loginWithPassword(username: string, password: string): Pro
 
 export function formatApiError(err: unknown): string {
     if (err instanceof ApiError) {
+        if (err.status === 0) {
+            const b = err.body as Record<string, unknown>;
+            if (typeof b?.detail === "string") return b.detail;
+            return err.message;
+        }
         const b = err.body as Record<string, unknown>;
         if (typeof b?.detail === "string") return b.detail;
         if (Array.isArray(b?.detail) && typeof b.detail[0] === "string") {
